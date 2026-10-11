@@ -14,7 +14,6 @@
 | 2 | 38183995032 | failure | Same check, after a `grep -q` pipe change that did not address the cause |
 | 3 | 38184064100 | success | Fix: trim `wc` output with `tr -d ' '` (commit b43c08c) |
 | 4 | 38184483981 | success | Second success, from commit f853aa1 (see below) |
-
 | 5 | 38184634926 | success | Same-commit pair, from commit 80b543d |
 | 6 | 38184683733 | success | Same-commit pair, from commit 80b543d |
 
