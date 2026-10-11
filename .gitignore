@@ -2,3 +2,12 @@ node_modules/
 web/dist/
 *.log
 .tmp-tests/
+.build/
+.swiftpm/
+build/
+Payload/
+*.ipa
+ios/PhotoSync.xcodeproj/
+DerivedData/
+.DS_Store
+.ci-tmp/
