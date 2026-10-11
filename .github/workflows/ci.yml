@@ -1,0 +1,117 @@
+name: ci
+
+# Every push runs the checks (no path filter, on purpose). Steps guarded by hashFiles stay
+# skipped until a later plan adds the file they test, so later plans add files, not YAML.
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Typecheck
+        shell: bash
+        run: npm run typecheck
+
+      - name: Server tests
+        shell: bash
+        run: npm test
+
+      - name: Info.plist gate
+        if: hashFiles('ios/scripts/check_info_plist.py') != ''
+        shell: bash
+        run: python3 ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist
+
+      - name: Info.plist gate self-test
+        if: hashFiles('ios/scripts/check_info_plist.py') != ''
+        shell: bash
+        run: python3 ios/scripts/check_info_plist.py --self-test
+
+      - name: iOS static checks
+        if: hashFiles('ios/project.yml') != ''
+        shell: bash
+        run: |
+          if find ios -name '*.entitlements' | grep -q .; then
+            echo "an entitlements file exists under ios; the free-account build must have none"; exit 1
+          fi
+          if grep -qiE 'entitlement|app-extension|extensionkit|appex|capabilit' ios/project.yml; then
+            echo "ios/project.yml mentions entitlements, extensions or capabilities"; exit 1
+          fi
+          if grep -rEq '^[[:space:]]*import[[:space:]]+(Photos|PhotosUI)\b' ios/PhotoSync ios/Packages/PhotoSyncCore/Sources 2>/dev/null; then
+            echo "Photos/PhotosUI is imported in a path where it must not be yet"; exit 1
+          fi
+
+      - name: Add Swift to PATH
+        if: hashFiles('ios/Packages/PhotoSyncCore/Package.swift') != '' || hashFiles('ios/PhotoSync/*.swift') != ''
+        shell: bash
+        run: |
+          command -v swift >/dev/null 2>&1 || echo /usr/share/swift/usr/bin >> "$GITHUB_PATH"
+
+      - name: Parse app sources
+        if: hashFiles('ios/PhotoSync/*.swift') != ''
+        shell: bash
+        run: swiftc -parse ios/PhotoSync/*.swift
+
+      - name: Start the real server
+        if: hashFiles('ios/Packages/PhotoSyncCore/Package.swift') != ''
+        shell: bash
+        run: |
+          # Port 18787 and a per-run data dir keep this server away from any real instance.
+          # PHOTOSYNC_HOST stays unset: setting it makes the server bind the same address twice.
+          mkdir -p "$RUNNER_TEMP/ps-data"
+          PHOTOSYNC_PORT=18787 PHOTOSYNC_DATA_DIR="$RUNNER_TEMP/ps-data" \
+            nohup node --disable-warning=ExperimentalWarning server/main.ts > "$RUNNER_TEMP/server.out" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:18787/api/v1/health >/dev/null && exit 0
+            sleep 0.5
+          done
+          cat "$RUNNER_TEMP/server.out"
+          exit 1
+
+      - name: swift test (unit + contract)
+        if: hashFiles('ios/Packages/PhotoSyncCore/Package.swift') != ''
+        working-directory: ios/Packages/PhotoSyncCore
+        shell: bash
+        env:
+          PHOTOSYNC_CONTRACT_URL: http://127.0.0.1:18787
+        run: |
+          # Run once: the contract suite sends one wrong-code pairing request and the server
+          # throttles at 8 per 5 minutes per source address.
+          swift --version
+          swift test 2>&1 | tee "$RUNNER_TEMP/swift-test.log"
+          grep -Eq 'Test run with [1-9][0-9]* tests?' "$RUNNER_TEMP/swift-test.log" \
+            || { echo "swift test discovered no tests"; exit 1; }
+
+      - name: Contract suite reached the server
+        if: hashFiles('ios/Packages/PhotoSyncCore/Package.swift') != ''
+        shell: bash
+        run: |
+          # The server is the independent witness that the tests really paired against it.
+          body=$(curl -sf http://127.0.0.1:18787/api/v1/admin/overview)
+          echo "$body" | grep -q 'Contract Test' \
+            || { echo "no device named Contract Test is paired on the server"; exit 1; }
+
+      - name: Show server output
+        if: failure()
+        shell: bash
+        run: cat "$RUNNER_TEMP/server.out" 2>/dev/null || true
