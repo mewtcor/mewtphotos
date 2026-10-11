@@ -1,0 +1,37 @@
+{
+  "name": "photosync",
+  "version": "0.1.0",
+  "description": "Wireless iPhone photo backup to a Windows PC over local Wi-Fi",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/main.ts",
+    "build": "vite build",
+    "dev:web": "vite",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "node --disable-warning=ExperimentalWarning server/verify-cli.ts"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.6",
+    "exifreader": "^4.48.0",
+    "fastify": "^5.12.5",
+    "qrcode": "^1.5.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}
