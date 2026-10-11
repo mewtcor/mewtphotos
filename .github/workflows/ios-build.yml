@@ -1,0 +1,114 @@
+name: ios-build
+on: { workflow_dispatch: {} }
+concurrency: { group: ios-build, cancel-in-progress: true }
+permissions: { contents: read }
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 25
+    env:
+      XCODE: /Applications/Xcode_26.6.app
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Start clock and gate the permission texts
+        shell: bash
+        run: |
+          set -o errexit -o pipefail
+          echo "T0=$(date +%s)" >> "$GITHUB_ENV"
+          python3 ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist
+          python3 ios/scripts/check_info_plist.py --self-test
+
+      - name: Select Xcode and print versions
+        shell: bash
+        run: |
+          set -o errexit -o pipefail
+          if [ ! -d "$XCODE" ]; then
+            echo "ERROR: $XCODE is missing. Xcode installs on this image:"
+            ls /Applications | grep -i xcode || true
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: XcodeGen (pinned)
+        shell: bash
+        run: |
+          set -o errexit -o pipefail
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip
+          echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  $RUNNER_TEMP/xcodegen.zip" \
+            | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          BIN="$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen"
+          [ -x "$BIN" ] || BIN=$(find "$RUNNER_TEMP/xcodegen" -type f -name xcodegen -perm -u+x | head -1)
+          echo "XcodeGen binary: $BIN"
+          "$BIN" --version
+          cd ios && "$BIN" generate --spec project.yml
+
+      - name: Build (unsigned)
+        shell: bash
+        run: |
+          set -o errexit -o pipefail
+          xcodebuild build \
+            -project ios/PhotoSync.xcodeproj \
+            -scheme PhotoSync \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            GIT_SHA="${GITHUB_SHA:0:7}" \
+            2>&1 | tee build.log | xcbeautify
+
+      - name: Package ipa and verify
+        shell: bash
+        run: |
+          set -o errexit -o pipefail
+          ls build/Build/Products/
+          APP=build/Build/Products/Release-iphoneos/PhotoSync.app
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          zip -qry PhotoSync.ipa Payload
+          unzip -l PhotoSync.ipa | head -20
+
+          unzip -Z1 PhotoSync.ipa | grep -qx 'Payload/PhotoSync.app/PhotoSync'
+          [ "$(unzip -Z1 PhotoSync.ipa | cut -d/ -f1 | sort -u | wc -l)" = "1" ]
+          [ "$(unzip -Z1 PhotoSync.ipa | cut -d/ -f2 | grep '\.app$' | sort -u | wc -l)" = "1" ]
+          if unzip -Z1 PhotoSync.ipa | grep -q 'embedded.mobileprovision'; then
+            echo "ERROR: the ipa contains a provisioning profile"; exit 1
+          fi
+
+          unzip -p PhotoSync.ipa Payload/PhotoSync.app/Info.plist > built-Info.plist
+          python3 ios/scripts/check_info_plist.py built-Info.plist --built
+          [ "$(plutil -extract CFBundleVersion raw built-Info.plist)" = "$GITHUB_RUN_NUMBER" ]
+
+          echo "--- evidence (informational) ---"
+          lipo -archs "$APP/PhotoSync" || true
+          file "$APP/PhotoSync" || true
+          codesign -dv "$APP" 2>&1 || true
+
+      - name: Record elapsed time
+        if: always()
+        shell: bash
+        run: |
+          NOW=$(date +%s)
+          echo "Job wall seconds: $(( NOW - T0 ))" >> "$GITHUB_STEP_SUMMARY"
+          echo "Billing rounds each job up to whole minutes." >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: PhotoSync-ipa
+          path: PhotoSync.ipa
+          retention-days: 7
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 3
