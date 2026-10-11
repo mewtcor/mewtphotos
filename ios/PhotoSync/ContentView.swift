@@ -1,4 +1,5 @@
-// The first screen: the PC address and pairing code, and whether this phone is paired yet.
+// The first screen: the PC address and pairing code, whether this phone is paired, the version,
+// and the log export.
 import SwiftUI
 import PhotoSyncCore
 
@@ -9,7 +10,7 @@ struct ContentView: View {
         NavigationStack {
             Form {
                 Section("Status") {
-                    Text(statusLine)
+                    Text(model.statusText)
                 }
                 Section("Pair with your PC") {
                     TextField("PC address", text: $model.addressText)
@@ -23,24 +24,30 @@ struct ContentView: View {
                         Task { await model.pair() }
                     }
                     .disabled(model.isBusy || model.addressText.isEmpty || model.codeText.isEmpty)
+                    Text("If iOS asks for Local Network access, tap Allow, then press Pair again.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     if let errorText = model.errorText {
                         Text(errorText)
                             .foregroundStyle(.red)
                     }
                 }
+                Section("About") {
+                    Text("Version \(model.versionText) (build \(model.buildText))")
+                    Text("Git \(model.gitSHAText)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Section("Log") {
+                    if let logURL = model.logURL {
+                        ShareLink("Export log", item: logURL)
+                    }
+                    Text("The same file is in Files under On My iPhone, then PhotoSync.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("PhotoSync")
-        }
-    }
-
-    private var statusLine: String {
-        switch model.state {
-        case .unpaired:
-            return "Not paired yet"
-        case .paired(let info):
-            return "Paired with \(info.serverName)"
-        case .needsRepair:
-            return "Pairing needs to be repeated"
         }
     }
 }
