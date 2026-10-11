@@ -78,8 +78,9 @@ jobs:
           # Read the listing into a file first: grep -q closing a pipe early can fail under pipefail.
           unzip -Z1 PhotoSync.ipa > ipa-list.txt
           grep -qx 'Payload/PhotoSync.app/PhotoSync' ipa-list.txt
-          [ "$(cut -d/ -f1 ipa-list.txt | sort -u | wc -l)" = "1" ]
-          [ "$(cut -d/ -f2 ipa-list.txt | grep '\.app$' | sort -u | wc -l)" = "1" ]
+          # macOS wc pads its count with spaces, so trim them before comparing.
+          [ "$(cut -d/ -f1 ipa-list.txt | sort -u | wc -l | tr -d ' ')" = "1" ]
+          [ "$(cut -d/ -f2 ipa-list.txt | grep '\.app$' | sort -u | wc -l | tr -d ' ')" = "1" ]
           if grep -q 'embedded.mobileprovision' ipa-list.txt; then
             echo "ERROR: the ipa contains a provisioning profile"; exit 1
           fi
