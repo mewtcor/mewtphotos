@@ -11,7 +11,7 @@ Requirements for the first usable native iPhone app. Each maps to one roadmap ph
 ### Build & Install
 
 - [x] **BLD-01**: The whole project (server, web pages, iOS app) lives in a private GitHub repository with the lockfile committed
-- [ ] **BLD-02**: Every push runs the server tests and the iOS logic-package tests on a Linux runner, including a contract test against the real server
+- [x] **BLD-02**: Every push runs the server tests and the iOS logic-package tests on a Linux runner, including a contract test against the real server
 - [ ] **BLD-03**: User can start a Mac build manually and download an unsigned `.ipa`; the build fails early if a required permission text is missing from the app
 - [ ] **BLD-04**: User can install the `.ipa` on the iPhone with the existing AltStore setup, and re-installing keeps the same app (one fixed bundle ID, no extensions, no entitlements)
 - [ ] **BLD-05**: User can export the app's log from the iPhone (share sheet or Files) and it never contains the device key
@@ -29,7 +29,7 @@ Requirements for the first usable native iPhone app. Each maps to one roadmap ph
 ### Pairing
 
 - [ ] **PAIR-01**: User can pair by scanning the QR code shown on the PC dashboard
-- [ ] **PAIR-02**: User can pair by typing the PC address and pairing code instead
+- [x] **PAIR-02**: User can pair by typing the PC address and pairing code instead
 - [ ] **PAIR-03**: The device key is stored in the iPhone Keychain and pairing is remembered across launches
 - [ ] **PAIR-04**: When the PC cannot be reached, the app names the likely cause in plain English (different Wi-Fi, PC app not running, firewall, Local Network permission off) and links to Settings where relevant
 - [ ] **PAIR-05**: User can see which PC is paired, edit its address, and forget it to pair again
@@ -151,7 +151,7 @@ Which phases cover which requirements. Filled in during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | BLD-01 | Phase 1 | Complete |
-| BLD-02 | Phase 1 | Pending |
+| BLD-02 | Phase 1 | Complete |
 | BLD-03 | Phase 1 | Pending |
 | BLD-04 | Phase 1 | Pending |
 | BLD-05 | Phase 1 | Pending |
@@ -163,7 +163,7 @@ Which phases cover which requirements. Filled in during roadmap creation.
 | FEAS-04 | Phase 2 | Pending |
 | FEAS-05 | Phase 2 | Pending |
 | PAIR-01 | Phase 4 | Pending |
-| PAIR-02 | Phase 1 | Pending |
+| PAIR-02 | Phase 1 | Complete |
 | PAIR-03 | Phase 1 | Pending |
 | PAIR-04 | Phase 4 | Pending |
 | PAIR-05 | Phase 4 | Pending |

@@ -56,11 +56,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. User types the PC address and pairing code into the app, the app reaches the PC over plain HTTP on the home network, and the pairing is still there after quitting and relaunching the app and after an AltStore refresh.
   5. User exports the app's log from the iPhone through the share sheet or Files, and the log does not contain the device key.
 
-**Plans**: 1/6 plans executed
+**Plans**: 2/6 plans executed
 
 Plans:
 - [x] 01-01-PLAN.md — Private GitHub repo (name confirmed first), Linux CI on every push (typecheck + vitest) and the permission-text gate with negative controls
-- [ ] 01-02-PLAN.md — Swift pairing client against the real server on Linux (transport, redacting DeviceKey, ServerClient, strict address parser, contract tests)
+- [x] 01-02-PLAN.md — Swift pairing client against the real server on Linux (transport, redacting DeviceKey, ServerClient, strict address parser, contract tests)
 - [ ] 01-03-PLAN.md — Remembered pairing: PairingFlow, pairing.json, scrubbed RunLog (real-server relaunch test)
 - [ ] 01-04-PLAN.md — SwiftUI app target: XcodeGen spec, bundle ID decision, Keychain adapter, pair form, launch evidence, version row, log export
 - [ ] 01-05-PLAN.md — Mac build to unsigned .ipa (two builds from one commit, explicit dispatches only), artifact checks, builds and minutes table
@@ -154,7 +154,7 @@ start until the Phase 2 go/no-go note says go.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build, Install and Pair | 1/6 | In Progress | - |
+| 1. Build, Install and Pair | 2/6 | In Progress | - |
 | 2. Feasibility on the Real iPhone | 0/TBD | Not started | - |
 | 3. PC Server Upgrades | 0/TBD | Not started | - |
 | 4. Pair and See What's Missing | 0/TBD | Not started | - |

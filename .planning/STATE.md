@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 01
 current_phase_name: Build, Install and Pair
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-10-11T19:12:06.527Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-10-11T19:41:37.874Z"
 last_activity: 2026-10-12
 last_activity_desc: Phase 01 execution started
-state_head: 34cadf88842569cf0066bbe93e4d7b735b3d2914
+state_head: 4db10047a022e77c4f7206613585b602f473b706
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-11)
 ## Current Position
 
 Phase: 01 (Build, Install and Pair) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-10-12 — Phase 01 execution started
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 15min | 4 tasks | 6 files |
+| Phase 01 P02 | 20min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Recent decisions affecting current work:
 - [Roadmap]: Research "Conflicts to resolve" adopted as written (JSON store, macos-26 with explicit Xcode, NSAllowsLocalNetworking only, Swift 6 core / Swift 5 app, sequential uploads, 8 MiB chunks).
 - [Phase 01]: Server vitest runs on windows-latest (engine test asserts Windows case-insensitive filenames); typecheck and guarded iOS steps stay on ubuntu-24.04
 - [Phase 01]: Repo mewtcor/photosync is private with default branch main; commits on main allowed (git.allow_default_branch_commits true)
+- [Phase 01]: Plan 02: Swift Testing works under swift test on Swift 6.4 Linux; NetworkFailure maps URLError to NSURLErrorDomain explicitly so Linux and iPhone agree
 
 ### Pending Todos
 
@@ -94,6 +96,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-11T19:12:06.504Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-10-11T19:41:37.853Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
