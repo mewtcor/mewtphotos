@@ -92,7 +92,7 @@ $BAD"
     ID=$(run_for_head 10) || die 3 "ci-watch: no run found for $SHA"
     # Capture first: grep -q closing the pipe early would trip pipefail on gh.
     LOG=$(gh run view "$ID" --log)
-    printf '%s\n' "$LOG" | grep -Eq "$REGEX" || die 1 "ci-watch: no log line matches /$REGEX/ in run $ID"
+    grep -Eq "$REGEX" <<<"$LOG" || die 1 "ci-watch: no log line matches /$REGEX/ in run $ID"
     ;;
   *) die 2 "ci-watch: unknown mode '$MODE'" ;;
 esac
