@@ -150,13 +150,71 @@ Which phases cover which requirements. Filled in during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (to be filled by roadmap) | | |
+| BLD-01 | Phase 1 | Pending |
+| BLD-02 | Phase 1 | Pending |
+| BLD-03 | Phase 1 | Pending |
+| BLD-04 | Phase 1 | Pending |
+| BLD-05 | Phase 1 | Pending |
+| BLD-06 | Phase 1 | Pending |
+| BLD-07 | Phase 1 | Pending |
+| FEAS-01 | Phase 1 | Pending |
+| FEAS-02 | Phase 2 | Pending |
+| FEAS-03 | Phase 2 | Pending |
+| FEAS-04 | Phase 2 | Pending |
+| FEAS-05 | Phase 2 | Pending |
+| PAIR-01 | Phase 4 | Pending |
+| PAIR-02 | Phase 1 | Pending |
+| PAIR-03 | Phase 1 | Pending |
+| PAIR-04 | Phase 4 | Pending |
+| PAIR-05 | Phase 4 | Pending |
+| LIB-01 | Phase 4 | Pending |
+| LIB-02 | Phase 4 | Pending |
+| LIB-03 | Phase 4 | Pending |
+| LIB-04 | Phase 4 | Pending |
+| LIB-05 | Phase 4 | Pending |
+| LIB-06 | Phase 4 | Pending |
+| LIB-07 | Phase 4 | Pending |
+| LIB-08 | Phase 4 | Pending |
+| ORIG-01 | Phase 5 | Pending |
+| ORIG-02 | Phase 6 | Pending |
+| ORIG-03 | Phase 6 | Pending |
+| ORIG-04 | Phase 5 | Pending |
+| ORIG-05 | Phase 5 | Pending |
+| LIVE-01 | Phase 6 | Pending |
+| LIVE-02 | Phase 6 | Pending |
+| CLOUD-01 | Phase 6 | Pending |
+| CLOUD-02 | Phase 6 | Pending |
+| CLOUD-03 | Phase 6 | Pending |
+| UP-01 | Phase 5 | Pending |
+| UP-02 | Phase 5 | Pending |
+| UP-03 | Phase 6 | Pending |
+| UP-04 | Phase 5 | Pending |
+| UP-05 | Phase 5 | Pending |
+| UP-06 | Phase 5 | Pending |
+| UP-07 | Phase 5 | Pending |
+| UP-08 | Phase 5 | Pending |
+| UP-09 | Phase 5 | Pending |
+| REP-01 | Phase 5 | Pending |
+| REP-02 | Phase 5 | Pending |
+| REP-03 | Phase 5 | Pending |
+| REP-04 | Phase 6 | Pending |
+| REP-05 | Phase 5 | Pending |
+| REP-06 | Phase 5 | Pending |
+| REP-07 | Phase 5 | Pending |
+| SRV-01 | Phase 3 | Pending |
+| SRV-02 | Phase 3 | Pending |
+| SRV-03 | Phase 3 | Pending |
+| SRV-04 | Phase 3 | Pending |
+| SRV-05 | Phase 3 | Pending |
+| SRV-06 | Phase 3 | Pending |
+| SRV-07 | Phase 3 | Pending |
+| SRV-08 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 59 total
-- Mapped to phases: 0
-- Unmapped: 59 ⚠️
+- Mapped to phases: 59
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-10-11*
-*Last updated: 2026-10-11 after initial definition*
+*Last updated: 2026-10-11 after roadmap creation (traceability filled)*
