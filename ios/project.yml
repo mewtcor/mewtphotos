@@ -1,0 +1,29 @@
+name: PhotoSync
+options:
+  deploymentTarget:
+    iOS: "18.0"
+packages:
+  PhotoSyncCore:
+    path: Packages/PhotoSyncCore
+targets:
+  PhotoSync:
+    type: application
+    platform: iOS
+    sources:
+      - path: PhotoSync
+        excludes:
+          - Info.plist
+    dependencies:
+      - package: PhotoSyncCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mewtcor.photosync
+        PRODUCT_NAME: PhotoSync
+        INFOPLIST_FILE: PhotoSync/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.0"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GIT_SHA: "dev"
+        TARGETED_DEVICE_FAMILY: "1"
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
