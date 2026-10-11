@@ -44,6 +44,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Build, Install and Pair
+
 **Goal:** User can build the iPhone app on GitHub Actions without a Mac, install it with AltStore, pair it with the PC by typing address and code, and see it reach the PC over plain HTTP.
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
@@ -54,18 +55,21 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User installs the `.ipa` on the iPhone with the existing AltStore setup, sees the app version and build inside the app, and re-installing over it keeps the same single app (no second icon, data kept).
   4. User types the PC address and pairing code into the app, the app reaches the PC over plain HTTP on the home network, and the pairing is still there after quitting and relaunching the app and after an AltStore refresh.
   5. User exports the app's log from the iPhone through the share sheet or Files, and the log does not contain the device key.
-**Plans**: 6 plans
+
+**Plans**: 1/6 plans executed
 
 Plans:
-- [ ] 01-01-PLAN.md — Private GitHub repo (name confirmed first), Linux CI on every push (typecheck + vitest) and the permission-text gate with negative controls
+- [x] 01-01-PLAN.md — Private GitHub repo (name confirmed first), Linux CI on every push (typecheck + vitest) and the permission-text gate with negative controls
 - [ ] 01-02-PLAN.md — Swift pairing client against the real server on Linux (transport, redacting DeviceKey, ServerClient, strict address parser, contract tests)
 - [ ] 01-03-PLAN.md — Remembered pairing: PairingFlow, pairing.json, scrubbed RunLog (real-server relaunch test)
 - [ ] 01-04-PLAN.md — SwiftUI app target: XcodeGen spec, bundle ID decision, Keychain adapter, pair form, launch evidence, version row, log export
 - [ ] 01-05-PLAN.md — Mac build to unsigned .ipa (two builds from one commit, explicit dispatches only), artifact checks, builds and minutes table
 - [ ] 01-06-PLAN.md — Single-session device test on the real iPhone and the go/no-go note (01-GATE.md)
+
 **UI hint**: yes
 
 ### Phase 2: Feasibility on the Real iPhone
+
 **Goal:** User knows, from measurements on the real iPhone, that the app can read byte-identical originals and upload video at a usable speed, before any feature is built on that assumption.
 **Mode:** mvp
 **Depends on**: Phase 1
@@ -75,10 +79,12 @@ Plans:
   2. User exports at least four kinds of item through the app, copies the same originals from the iPhone to the PC over USB, and the SHA-256 of each exported file equals the SHA-256 of its USB original. A written go/no-go note records the result; any mismatch stops the project and the roadmap is re-planned (hard gate).
   3. User uploads a large video from the app to the PC and the measured speed is recorded and clearly faster than the 0.5 MB/s seen in Safari, together with the chunk size used and what happens when the screen locks.
   4. The observed behaviour of an iCloud-only item, a hidden item (with the Hidden album locked) and burst frames is written down before Phases 4-6 are designed around it.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 3: PC Server Upgrades
+
 **Goal:** The Windows server keeps Live Photo pairs together, separates Hidden items, answers "already backed up?" truthfully, and recovers from failed moves, with the Safari page and Shortcut flows unchanged.
 **Mode:** mvp
 **Depends on**: Nothing (Windows-only server work; can run alongside the early device phases, for example while a build or phone test is pending)
@@ -89,9 +95,11 @@ Plans:
   3. Asking the server "already backed up?" about an item whose file was deleted or shortened on the PC answers "not backed up"; re-sending the same item within one session creates no second record and does not inflate that session's counts.
   4. An upload whose final move fails returns to a resumable state and completes on retry without restarting the PC app; a backup database from before this change upgrades automatically with every row intact; the PC reports how much free disk space it has.
   5. The Safari page and Shortcut flows behave exactly as before: the existing 49 tests plus new regression tests all pass.
+
 **Plans**: TBD
 
 ### Phase 4: Pair and See What's Missing
+
 **Goal:** User can pair by scanning the dashboard QR code, grant full photo access, and see how many items in the whole library the PC does not have yet, without anything being sent.
 **Mode:** mvp
 **Depends on**: Phase 2 (go decision and recorded findings), Phase 3
@@ -101,10 +109,12 @@ Plans:
   2. When the PC cannot be reached, the app names the likely cause in plain English (different Wi-Fi, PC app not running, firewall, Local Network permission off) and links to Settings where that is the fix.
   3. The app asks for photo library access with a clear explanation, shows guidance when access is denied or restricted, and with "selected photos" access shows a persistent warning and refuses to run or present anything as complete; changing the setting in Settings is noticed at the start of a run and when the app returns to the foreground.
   4. Before starting, user sees how many items are not on the PC yet, counted over the whole library and listed newest first, including hidden items and every frame of a burst, and leaving out shared-album and Recently Deleted items.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 5: Back Up Photos
+
 **Goal:** User taps "Back up now" and every photo not yet on the PC arrives as its untouched original, with live progress and a result that matches what the PC verified.
 **Mode:** mvp
 **Depends on**: Phase 4
@@ -115,10 +125,12 @@ Plans:
   3. During the run user sees the current item, item N of M and what is happening (checking, preparing, sending, verifying on PC); the screen stays awake with a "keep this open" message; user can stop at any time and a later run picks up cleanly.
   4. Sending the app to the background, locking the screen, dropping Wi-Fi or restarting the PC app shows "paused" and the run continues when conditions return; the PC app does not shut itself down mid-run; a full PC disk stops the run with one clear message; one failing photo never stops the run and the phone's free space is checked before each export, with no temporary copies left after a failure, a stop or the next launch.
   5. At the end user sees totals that add up (considered = already on PC + newly verified + failed + unavailable), the verified count equals the PC's own count and any mismatch is shown; every failed or unavailable item is listed with name, date and a plain-English reason; the last result is shown when the app is reopened; the result states that edited versions of photos are not yet backed up. In this phase videos, Live Photos and iCloud-only items are listed as unavailable with the reason "not supported in this version yet" and are never counted as backed up.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 6: Videos, Live Photos, iCloud and Retry
+
 **Goal:** User's whole library is covered: videos, both halves of Live Photos and iCloud-only items arrive as originals, interrupted large videos resume, and failed items can be retried.
 **Mode:** mvp
 **Depends on**: Phase 5 (also relies on the Phase 3 server work and the Phase 2 findings)
@@ -129,6 +141,7 @@ Plans:
   3. A large video interrupted mid-transfer (for example by switching Wi-Fi off or restarting the PC app) continues from where it stopped instead of starting again.
   4. An item stored only in iCloud shows "downloading from iCloud" with progress and is backed up; a download that stalls or fails is given up after a timeout, marked unavailable with a reason, the run carries on, and unavailable items are listed separately and never counted as backed up.
   5. User can retry all failed items or a single one from the list, and the totals still add up and still match the PC's count afterwards.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -141,7 +154,7 @@ start until the Phase 2 go/no-go note says go.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build, Install and Pair | 0/6 | Planned | - |
+| 1. Build, Install and Pair | 1/6 | In Progress | - |
 | 2. Feasibility on the Real iPhone | 0/TBD | Not started | - |
 | 3. PC Server Upgrades | 0/TBD | Not started | - |
 | 4. Pair and See What's Missing | 0/TBD | Not started | - |

@@ -10,7 +10,7 @@ Requirements for the first usable native iPhone app. Each maps to one roadmap ph
 
 ### Build & Install
 
-- [ ] **BLD-01**: The whole project (server, web pages, iOS app) lives in a private GitHub repository with the lockfile committed
+- [x] **BLD-01**: The whole project (server, web pages, iOS app) lives in a private GitHub repository with the lockfile committed
 - [ ] **BLD-02**: Every push runs the server tests and the iOS logic-package tests on a Linux runner, including a contract test against the real server
 - [ ] **BLD-03**: User can start a Mac build manually and download an unsigned `.ipa`; the build fails early if a required permission text is missing from the app
 - [ ] **BLD-04**: User can install the `.ipa` on the iPhone with the existing AltStore setup, and re-installing keeps the same app (one fixed bundle ID, no extensions, no entitlements)
@@ -150,7 +150,7 @@ Which phases cover which requirements. Filled in during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BLD-01 | Phase 1 | Pending |
+| BLD-01 | Phase 1 | Complete |
 | BLD-02 | Phase 1 | Pending |
 | BLD-03 | Phase 1 | Pending |
 | BLD-04 | Phase 1 | Pending |
