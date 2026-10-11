@@ -333,7 +333,7 @@ Not applicable: greenfield addition (no rename/refactor/migration). Nothing in t
 
 ### Pitfall 8: Linux CI cost eats the Mac allowance
 **What goes wrong:** the 2,000 free minutes are shared; Linux at 1x on every push plus Mac at about 10x.
-**How to avoid:** `paths-ignore` for `.planning/**`, `docs/**`, `**/*.md` (GSD commits planning docs constantly); `concurrency` with `cancel-in-progress`; `setup-node` npm cache; one Linux job instead of two (each job rounds up to a whole minute). Interpretation to confirm: "every push runs the tests" is implemented as "every push that changes code or workflows".
+**How to avoid:** `concurrency` with `cancel-in-progress`; `setup-node` npm cache; one Linux job instead of two (each job rounds up to a whole minute). A path filter on `.planning/**`, `docs/**`, `**/*.md` was considered and rejected (superseded, see Open Question 5 RESOLVED): the plans run the tests on every push, as the requirement reads.
 
 ### Pitfall 9: Starting `server/main.ts` on a CI runner
 **What goes wrong:** assumptions about `main.ts` on Linux are untested: `pickLanAddress()` picks the runner's NIC and the server binds loopback plus that NIC; default backup folder resolves to `~/Pictures/iPhone Backup` (no PowerShell on Linux, falls back, `server/config.ts` lines 17-31) but is never written to in Phase 1.
@@ -699,18 +699,27 @@ Other contract cases: `GET /health` returns `ok == true` and `name == "photosync
 | A18 | `gh auth refresh -s workflow` is the right way to add the missing scope | Repo setup | Create a new token with `repo` + `workflow` instead |
 | A19 | Swift Testing runs under `swift test` on the preinstalled Linux toolchain | Core tests | Switch the tests to XCTest |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Bundle identifier (immutable).**
+Every question below is settled by a named plan checkpoint, plan task or decision. None is left open for execution; where the answer can only come from the user or the phone, the plan step that collects it is named.
+
+1. **Bundle identifier (immutable).** (RESOLVED)
    - What we know: one ID forever; AltStore appends the team ID; length/ASCII rules apply (error 3009 for non-ASCII names).
    - What's unclear: the user's preferred reverse-DNS prefix.
    - Recommendation: ask once at the start of the build plan; default `com.mewtcor.photosync` (GitHub handle). Record it in `01-GATE.md`.
-2. **Exact iOS version on the phone.** 18.0-18.5 have the Local Network stale-state bug (fixed in 18.6). Ask for it and put it in the device test sheet.
-3. **Do the 49 server tests pass on Linux?** Unknown until the first `ci.yml` run. Plan a decision point after the first run: keep Linux or move vitest to `windows-latest`.
-4. **How is the `.ipa` delivered to the phone, and how does AltStore handle install-over?** Plan a documented route (artifact -> `gh run download` -> iCloud Drive -> AltStore "+") and let the device test confirm; a Windows-side "Sideload .ipa" menu entry was not confirmed in official docs.
-5. **"Every push" scope.** Recommended interpretation: every push that changes code/workflows (docs and `.planning` pushes skipped to protect the allowance). Confirm this is acceptable.
-6. **Billing guardrail.** Ask the user to confirm the account has no payment method/budget that could bill past the free allowance (the new billing UI uses "budgets"; a $0 budget for Actions is the safe setting) before the first Mac build. [CITED: STACK.md; not re-verified on the live billing page].
-7. **Keep `.planning/` in the private repo?** It is already tracked (`git ls-files` shows `.planning/*` and `.claude/CLAUDE.md`); default yes, private repo.
+   - **RESOLVED:** Plan 01-04 Task 1 is a blocking `checkpoint:decision` that asks once (default `com.mewtcor.photosync`). The answer is written to `ios/project.yml` in 01-04 Task 2, to 01-04-SUMMARY, and copied into `01-GATE.md` Identity by 01-05 Task 3.
+2. **Exact iOS version on the phone.** (RESOLVED) 18.0-18.5 have the Local Network stale-state bug (fixed in 18.6). Ask for it and put it in the device test sheet.
+   - **RESOLVED:** Plan 01-06 Task 1 opens the device checklist with a "Record the iOS version" line and the TN3179 note, Task 2 requires the version in the user's reply, and Task 3 writes it into `01-GATE.md` as an open item Phase 2 inherits.
+3. **Do the 49 server tests pass on Linux?** (RESOLVED) Unknown until the first `ci.yml` run. Plan a decision point after the first run: keep Linux or move vitest to `windows-latest`.
+   - **RESOLVED:** the decision point is Plan 01-01 Task 3, bounded contingency (b): vitest stays on `ubuntu-24.04` unless the first run fails for a Windows-path or PowerShell reason, in which case only the vitest step moves to a `windows-latest` job. The outcome is recorded in 01-01-SUMMARY.
+4. **How is the `.ipa` delivered to the phone, and how does AltStore handle install-over?** (RESOLVED) Plan a documented route (artifact -> `gh run download` -> iCloud Drive -> AltStore "+") and let the device test confirm; a Windows-side "Sideload .ipa" menu entry was not confirmed in official docs.
+   - **RESOLVED:** the route is written into Plan 01-06 Task 1 section 0 (artifact, `gh run download`, iCloud Drive, AltStore plus button; second route: download the artifact zip in Safari on the phone). Install-over is exercised on the phone in section 6 of the same checklist (Task 2) and a failure is recorded as NO-GO in `01-GATE.md`.
+5. **"Every push" scope.** (RESOLVED) Recommended interpretation: every push that changes code/workflows (docs and `.planning` pushes skipped to protect the allowance). Confirm this is acceptable.
+   - **RESOLVED:** the requirement is implemented as written. Plan 01-01 Task 3 gives `ci.yml` no path filter, so every push runs the server and Swift tests; the `paths-ignore` line in the Pattern 1 skeleton above is superseded. A documentation-only push costs one Linux run at 1x, bounded by the per-ref concurrency group, one job and the npm cache. No narrowing is offered; the user can ask for one later if Linux minutes become scarce.
+6. **Billing guardrail.** (RESOLVED) Ask the user to confirm the account has no payment method/budget that could bill past the free allowance (the new billing UI uses "budgets"; a $0 budget for Actions is the safe setting) before the first Mac build. [CITED: STACK.md; not re-verified on the live billing page].
+   - **RESOLVED:** Plan 01-05 Task 1 is a blocking `checkpoint:human-action` before any Mac build. The reply is recorded verbatim in `01-GATE.md` Billing baseline, and the reply "not capped" means no Mac build is started.
+7. **Keep `.planning/` in the private repo?** (RESOLVED) It is already tracked (`git ls-files` shows `.planning/*` and `.claude/CLAUDE.md`); default yes, private repo.
+   - **RESOLVED:** yes, `.planning/` stays tracked and is pushed with the history. The user confirms the repository name and private visibility in Plan 01-01 Task 1 before the first push, and 01-01 Task 2 verifies `isPrivate` is true.
 
 ## Environment Availability
 

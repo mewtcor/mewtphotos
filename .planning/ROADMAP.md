@@ -57,11 +57,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 6 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Private GitHub repo, Linux CI baseline (typecheck + vitest) and the permission-text gate with negative controls
+- [ ] 01-01-PLAN.md — Private GitHub repo (name confirmed first), Linux CI on every push (typecheck + vitest) and the permission-text gate with negative controls
 - [ ] 01-02-PLAN.md — Swift pairing client against the real server on Linux (transport, redacting DeviceKey, ServerClient, strict address parser, contract tests)
-- [ ] 01-03-PLAN.md — Remembered pairing: PairingFlow, pairing.json, scrubbed RunLog, launch evidence (real-server relaunch test)
-- [ ] 01-04-PLAN.md — SwiftUI app target: XcodeGen spec, bundle ID decision, Keychain adapter, pair form, version row, log export
-- [ ] 01-05-PLAN.md — Mac build to unsigned .ipa (two builds from one commit), artifact checks, builds and minutes table
+- [ ] 01-03-PLAN.md — Remembered pairing: PairingFlow, pairing.json, scrubbed RunLog (real-server relaunch test)
+- [ ] 01-04-PLAN.md — SwiftUI app target: XcodeGen spec, bundle ID decision, Keychain adapter, pair form, launch evidence, version row, log export
+- [ ] 01-05-PLAN.md — Mac build to unsigned .ipa (two builds from one commit, explicit dispatches only), artifact checks, builds and minutes table
 - [ ] 01-06-PLAN.md — Single-session device test on the real iPhone and the go/no-go note (01-GATE.md)
 **UI hint**: yes
 
