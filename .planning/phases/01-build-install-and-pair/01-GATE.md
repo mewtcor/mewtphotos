@@ -15,7 +15,10 @@
 | 3 | 38184064100 | success | Fix: trim `wc` output with `tr -d ' '` (commit b43c08c) |
 | 4 | 38184483981 | success | Second success, from commit f853aa1 (see below) |
 
-Dispatches used: 4. The plan's cap of three covered the first success; the fourth was approved by the user for the second.
+| 5 | 38184634926 | success | Same-commit pair, from commit 80b543d |
+| 6 | 38184683733 | success | Same-commit pair, from commit 80b543d |
+
+Dispatches used: 6. The plan's cap of three covered the first success; dispatch 4 was approved for a second success, and 5 and 6 were run to get two successes from one commit (see below). Runs 5 and 6 cost about 20 macOS minutes more than the single dispatch that had been approved.
 
 ## First success: run 38184064100
 
@@ -43,14 +46,17 @@ Checks inside the workflow (all passed on run 38184064100):
 - SHA-256: `2d91cd6f6d73597d7c4214565ddea45a4ae56777cdf494ea0b304eb196811d9d`
 - Contents: same five entries as run 3.
 
-## Not met: same final commit
+## Same final commit: met (runs 5 and 6, both from 80b543d)
 
-The plan asks for both successful runs from the same commit. They are not:
-- Run 3 built `b43c08c`. Run 4 built `f853aa1`.
-- The only difference between the two commits is `01-GATE.md`. `project.yml`, the Swift sources and the workflow are identical.
-- The two ipas have different SHA-256 values and differ by one byte, so the build output is not byte-for-byte reproducible.
+| Run | Run number | Commit | Job wall time | ipa bytes | SHA-256 |
+|-----|-----------|--------|---------------|-----------|---------|
+| 38184634926 | 5 | 80b543d | 28 s | 150,066 | `cc7e38f788ff6adebcdb4ef1c75887bdca3de7d8c69bb8966dc845d42281cc23` |
+| 38184683733 | 6 | 80b543d | 28 s | 150,067 | `43376adefe35d058320af76604661f3c06ce9eab521302779378d1a4f77f543a` |
 
-Closing this strictly needs a rebuild from a commit that has no later changes. Not done, since it would cost another ~10 macOS minutes.
+- Billed estimate per run: 1 minute at the 10× rate, about 10 macOS minutes each.
+- Download either with `gh run download <run-id> -n PhotoSync-ipa -D <dir>`.
+- The two ipas differ by one byte and have different checksums. The build is not byte-for-byte reproducible, though the contents are the same.
+- Runs 3 and 4 (commits `b43c08c` and `f853aa1`) are kept above as history. Their only difference is `01-GATE.md`.
 
 ## Not verified
 
