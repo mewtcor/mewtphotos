@@ -54,7 +54,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User installs the `.ipa` on the iPhone with the existing AltStore setup, sees the app version and build inside the app, and re-installing over it keeps the same single app (no second icon, data kept).
   4. User types the PC address and pairing code into the app, the app reaches the PC over plain HTTP on the home network, and the pairing is still there after quitting and relaunching the app and after an AltStore refresh.
   5. User exports the app's log from the iPhone through the share sheet or Files, and the log does not contain the device key.
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Private GitHub repo, Linux CI baseline (typecheck + vitest) and the permission-text gate with negative controls
+- [ ] 01-02-PLAN.md — Swift pairing client against the real server on Linux (transport, redacting DeviceKey, ServerClient, strict address parser, contract tests)
+- [ ] 01-03-PLAN.md — Remembered pairing: PairingFlow, pairing.json, scrubbed RunLog, launch evidence (real-server relaunch test)
+- [ ] 01-04-PLAN.md — SwiftUI app target: XcodeGen spec, bundle ID decision, Keychain adapter, pair form, version row, log export
+- [ ] 01-05-PLAN.md — Mac build to unsigned .ipa (two builds from one commit), artifact checks, builds and minutes table
+- [ ] 01-06-PLAN.md — Single-session device test on the real iPhone and the go/no-go note (01-GATE.md)
 **UI hint**: yes
 
 ### Phase 2: Feasibility on the Real iPhone
@@ -133,7 +141,7 @@ start until the Phase 2 go/no-go note says go.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build, Install and Pair | 0/TBD | Not started | - |
+| 1. Build, Install and Pair | 0/6 | Planned | - |
 | 2. Feasibility on the Real iPhone | 0/TBD | Not started | - |
 | 3. PC Server Upgrades | 0/TBD | Not started | - |
 | 4. Pair and See What's Missing | 0/TBD | Not started | - |
