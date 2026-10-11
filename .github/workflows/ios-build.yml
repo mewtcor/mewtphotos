@@ -75,10 +75,12 @@ jobs:
           zip -qry PhotoSync.ipa Payload
           unzip -l PhotoSync.ipa | head -20
 
-          unzip -Z1 PhotoSync.ipa | grep -qx 'Payload/PhotoSync.app/PhotoSync'
-          [ "$(unzip -Z1 PhotoSync.ipa | cut -d/ -f1 | sort -u | wc -l)" = "1" ]
-          [ "$(unzip -Z1 PhotoSync.ipa | cut -d/ -f2 | grep '\.app$' | sort -u | wc -l)" = "1" ]
-          if unzip -Z1 PhotoSync.ipa | grep -q 'embedded.mobileprovision'; then
+          # Read the listing into a file first: grep -q closing a pipe early can fail under pipefail.
+          unzip -Z1 PhotoSync.ipa > ipa-list.txt
+          grep -qx 'Payload/PhotoSync.app/PhotoSync' ipa-list.txt
+          [ "$(cut -d/ -f1 ipa-list.txt | sort -u | wc -l)" = "1" ]
+          [ "$(cut -d/ -f2 ipa-list.txt | grep '\.app$' | sort -u | wc -l)" = "1" ]
+          if grep -q 'embedded.mobileprovision' ipa-list.txt; then
             echo "ERROR: the ipa contains a provisioning profile"; exit 1
           fi
 
