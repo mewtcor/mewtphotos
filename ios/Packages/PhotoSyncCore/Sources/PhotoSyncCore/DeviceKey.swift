@@ -9,7 +9,8 @@ public struct DeviceKey: Sendable, Equatable, CustomStringConvertible, CustomDeb
         self.raw = raw
     }
 
-    /// The single way to read the key. Only ServerClient calls it, to build the Authorization header.
+    /// The single way to read the key. ServerClient calls it to build the Authorization header, and the
+    /// pairing flow calls it once to register the value with the log scrubber.
     public func revealForAuthorization() -> String {
         raw
     }

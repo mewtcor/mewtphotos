@@ -35,7 +35,7 @@ public protocol HTTPTransport: Sendable {
 
 /// Sends requests through a URLSession the caller prepared. Core sets no session options: the
 /// app target configures its own session (some options do not exist on Linux, where tests run).
-public struct URLSessionTransport: HTTPTransport, @unchecked Sendable {
+public struct URLSessionTransport: HTTPTransport {
     private let session: URLSession
 
     public init(session: URLSession) {
