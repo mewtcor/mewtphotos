@@ -186,6 +186,37 @@ final class AppModel {
         return Double(parts.seconds) + Double(parts.attoseconds) / 1e18
     }
 
+    /// Points the saved pairing at another address. The key stays; the PC must still accept it.
+    func changeAddress(_ text: String) async {
+        guard let environment, !isBusy else { return }
+        isBusy = true
+        errorText = nil
+        let result = await environment.flow.changeAddress(text)
+        isBusy = false
+        switch result {
+        case .success(let info):
+            connectionText = nil
+            state = .paired(info)
+        case .failure(let failure):
+            errorText = failure.message
+        }
+    }
+
+    /// Forgets the PC on this iPhone. Pairing again needs a new code from the PC.
+    func forget() async {
+        guard let environment else { return }
+        await environment.flow.forget()
+        connectionText = nil
+        errorText = nil
+        state = .unpaired
+    }
+
+    /// The paired PC for a request, or nil when not paired.
+    func connection() async -> PairedConnection? {
+        guard let environment else { return nil }
+        return await environment.flow.pairedConnection()
+    }
+
     private static func bundleValue(_ key: String) -> String {
         Bundle.main.object(forInfoDictionaryKey: key) as? String ?? "-"
     }

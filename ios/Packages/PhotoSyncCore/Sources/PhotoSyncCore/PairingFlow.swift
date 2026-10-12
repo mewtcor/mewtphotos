@@ -172,6 +172,49 @@ public actor PairingFlow {
         return .success(Self.info(record))
     }
 
+    // ---- paired PC ----
+
+    /// Points the saved pairing at another address. The same key is kept, so this only works when the PC at
+    /// the new address still accepts this iPhone; otherwise the saved pairing is left as it was.
+    public func changeAddress(_ addressText: String) async -> Result<PairedInfo, PairFailure> {
+        guard case .record(let record) = store.load(), case .found(let key) = keys.load() else {
+            return .failure(PairFailure(message: "This iPhone is not paired with a PC yet."))
+        }
+        let address: ServerAddress
+        switch ServerAddress.parse(addressText) {
+        case .failure(let error):
+            await log.append(.warn, code: "address_rejected", "address rejected: \(error)")
+            return .failure(PairFailure(message: error.userMessage))
+        case .success(let parsed):
+            address = parsed
+        }
+        await log.register(secret: key.revealForAuthorization())
+        let client = ServerClient(base: address.baseURL, transport: transport)
+        do {
+            let status = try await client.status(key: key)
+            let updated = PairingRecord(
+                serverURL: address.baseURL.absoluteString, deviceId: record.deviceId, deviceName: record.deviceName,
+                serverName: status.serverName, pairedAtEpoch: record.pairedAtEpoch)
+            try store.save(updated)
+            await log.append(.info, code: "address_changed", "now paired with \(address.display)")
+            return .success(Self.info(updated))
+        } catch ServerClientError.server(let status, _, _) where status == 401 {
+            await log.append(.warn, code: "address_key_rejected", "the PC at \(address.display) does not accept this key (401)")
+            return .failure(PairFailure(message: "That PC does not accept this iPhone. Forget it and pair again with a code from that PC."))
+        } catch {
+            return .failure(await failure(for: error, networkCode: "address_check_failed", otherCode: "address_check_failed"))
+        }
+    }
+
+    /// Forgets the PC: removes the saved record and the device key. Pairing again needs a new code from the PC.
+    public func forget() async {
+        if case .failed(let status) = keys.delete() {
+            await log.append(.error, code: "forget_key_failed", "removing the device key failed, status \(status)")
+        }
+        try? store.clear()
+        await log.append(.info, code: "forgot", "forgot the paired PC")
+    }
+
     // ---- connection ----
 
     // ---- upload ----
@@ -250,7 +293,7 @@ public actor PairingFlow {
             await log.append(.warn, code: networkCode,
                              "domain \(failure.domain) code \(failure.code) underlying \(failure.underlyingCode.map { String($0) } ?? "none")")
             return PairFailure(message:
-                "Could not reach your PC. Check that the iPhone is on the same Wi-Fi as the PC and that the PhotoSync PC app is running. If iOS asked about Local Network access, tap Allow.")
+                "Could not reach your PC. Check that the iPhone is on the same Wi-Fi as the PC, that the PhotoSync PC app is running, that Windows Firewall allows PhotoSync, and that Local Network access is on for PhotoSync in Settings.")
         case .unexpectedResponse(let message), .invalidInput(let message):
             await log.append(.warn, code: otherCode, "unexpected: \(message)")
             return PairFailure(message: message)
