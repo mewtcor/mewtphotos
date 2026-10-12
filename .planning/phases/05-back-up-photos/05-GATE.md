@@ -22,12 +22,15 @@ needed a PC server restart before it appeared). Commits: `8e5f50c`, `e517d66`, p
 
 
 - **RAW (DNG) beside a JPEG or HEIC:** the PC stores the original with its own name.
-- **Hidden photo:** the PC stores it under the Hidden folder.
 - **Burst photo:** every frame is listed and stored.
 - **Restricted access (Screen Time):** carried over from Phase 4.
 - **Phone totals match the PC's count** after a full run (REP-02). The PC count line is in; the comparison is manual.
 
 ## Known gaps, carried into Phase 6
+
+- **Hidden photos are not backed up (accepted limit, not a pass).** On builds 22 and 23 the app sees 0 hidden photos,
+  even though the Hidden album holds IMG_4304 and IMG_5959. Reading the Hidden album directly also gave 0. The PC never
+  receives them. The owner chose to accept this for now (option 2). Revisit before calling the library "complete".
 
 - Videos are listed as "not supported in this version yet" (about 3000 items).
 - Live Photos send only the still photo. IMG_8068.HEIC is a Live Photo and shows as not supported for that reason.
@@ -36,6 +39,7 @@ needed a PC server restart before it appeared). Commits: `8e5f50c`, `e517d66`, p
 
 ## Decision
 
-Open. The device checks above must pass on the next build before this gate closes. Requirements ORIG-01, ORIG-04,
-ORIG-05, UP-01, UP-02, UP-04 to UP-09, REP-01, REP-02, REP-03, REP-05, REP-06, REP-07 are covered by the checks marked
-Pass. ORIG-02 and ORIG-03 belong to Phase 6.
+Open. The remaining device checks (burst, RAW beside JPEG or HEIC, restricted access) must pass before this gate closes.
+Hidden photos are an accepted gap for now, recorded above. Requirements ORIG-01, ORIG-04, ORIG-05, UP-01, UP-02,
+UP-04 to UP-09, REP-01, REP-02, REP-03, REP-05, REP-06, REP-07 are covered by the checks marked Pass. ORIG-02 and
+ORIG-03 belong to Phase 6.
