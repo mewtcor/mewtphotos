@@ -88,14 +88,14 @@ Reading the lines: launch 2 is the first launch after pairing (key found, pairin
 
 The log has no connection-result line and no error-code line. The app does not write them (see the known gap in the device checklist), so the connection checks above are from the screen only.
 
-Not yet checked:
-- Only one PhotoSync icon after installing build 6 (step 6).
-- Searching the exported log for `Bearer` (step 7). Expected: no match.
-- Whether the Local Network prompt came back during the refresh (step 5).
+Checks after the log (all passed):
+- One PhotoSync icon after installing build 6 (step 6). Spotlight search lists a single PhotoSync app.
+- No `Bearer` in the exported log (step 7).
+- No Local Network prompt during the refresh (step 5).
 
 Gate conditions:
 - The unsigned build installs with AltStore: yes
 - It reaches the PC over plain HTTP: yes (paired and connected over http://192.168.4.152:8787)
 - The device key survives a relaunch and an AltStore refresh: yes (keychain=found on launches 2, 3 and 4)
 
-Decision: go, pending the three unchecked items above. Phase 1 closes when those are confirmed.
+Decision: go. Phase 1 is closed.
