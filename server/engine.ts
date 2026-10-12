@@ -31,6 +31,8 @@ export interface Ctx {
 const STALE_UPLOAD_MS = 7 * 24 * 60 * 60 * 1000;
 /** A chunk that receives no bytes for this long is abandoned so the upload can be resumed. */
 export const timeouts = { chunkIdleMs: 60_000 };
+/** Test seam: lets a test fail the final move once, to prove the upload goes back to resumable (SRV-05). */
+export const seams: { beforeMove?: () => void } = {};
 
 function errorCode(err: unknown): string {
   return typeof err === 'object' && err !== null && 'code' in err ? String((err as { code: unknown }).code) : '';
@@ -126,7 +128,8 @@ export async function createUpload(ctx: Ctx, device: DeviceRow, body: z.infer<ty
     : body.assetId
       ? get<UploadRow>(ctx.db, `SELECT * FROM uploads WHERE session_id = ? AND asset_id = ? AND size = ? AND status IN ('verified', 'duplicate') LIMIT 1`, body.sessionId, body.assetId, body.size)
       : undefined;
-  if (same) return resultOf(ctx, same.id);
+  // Reported as a duplicate, as a re-announced known hash always has been: nothing new was stored.
+  if (same) return { ...resultOf(ctx, same.id), status: 'duplicate' };
   const now = Date.now();
   const id = randomUUID();
   const insert = (status: string, tempPath: string, extra: { sha256?: string; fileId?: number } = {}) =>
@@ -374,12 +377,19 @@ async function place(ctx: Ctx, upload: UploadRow, sha256: string, e2e: boolean, 
     // Record the intent first so a crash between rename and commit is recoverable (see recover()).
     run(ctx.db, `UPDATE uploads SET status = 'finalizing', final_path = ?, sha256 = ?, e2e_verified = ?, updated_at = ? WHERE id = ?`, target, sha256, e2e ? 1 : 0, Date.now(), upload.id);
     try {
+      seams.beforeMove?.();
       await rename(upload.temp_path, target);
     } catch (err) {
       if (errorCode(err) !== 'EXDEV') throw err;
       // Backup folder was moved to another drive mid-upload: copy, verify the copy, then drop the temp.
-      await copyFile(upload.temp_path, target, constants.COPYFILE_EXCL);
-      await syncFile(target);
+      try {
+        await copyFile(upload.temp_path, target, constants.COPYFILE_EXCL);
+        await syncFile(target);
+      } catch (copyErr) {
+        // A half-copied target is ours to remove; EEXIST means someone else's file is there, so it stays.
+        if (errorCode(copyErr) !== 'EEXIST') await rm(target, { force: true });
+        throw copyErr;
+      }
       if ((await hashFile(target)) !== sha256) {
         await rm(target, { force: true });
         throw new Error('copy to the backup folder did not verify');
@@ -422,6 +432,13 @@ export async function finishUpload(ctx: Ctx, upload: UploadRow, clientSha256: st
     ctx.emit('change');
     return resultOf(ctx, upload.id);
   } catch (err) {
+    // SRV-05: a failed final move goes back to a resumable upload. The temp file is still complete, so a
+    // retry finishes it without restarting the PC app.
+    const row = get<{ status: string }>(ctx.db, 'SELECT status FROM uploads WHERE id = ?', upload.id);
+    if (row?.status === 'finalizing') {
+      run(ctx.db, `UPDATE uploads SET status = 'receiving', final_path = NULL, sha256 = NULL, updated_at = ? WHERE id = ?`, Date.now(), upload.id);
+      ctx.log('warn', 'move_retry', `Saving "${upload.filename}" failed at the final move; it is back in line to finish on retry.`);
+    }
     throw classify(ctx, upload.filename, err);
   } finally {
     ctx.active.delete(upload.id);

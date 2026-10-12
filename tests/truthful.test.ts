@@ -54,7 +54,7 @@ describe('resend in one session', () => {
       url: `${API}/uploads`,
       payload: { sessionId: session, filename: 'IMG_10.JPG', size: data.length, mimeType: '', sha256: sha256(data) },
     });
-    expect(again.json()).toMatchObject({ status: 'verified' });
+    expect(again.json()).toMatchObject({ status: 'duplicate' });
     expect(all(s.db, 'SELECT id FROM uploads WHERE session_id = ?', session)).toHaveLength(1);
   });
 });
