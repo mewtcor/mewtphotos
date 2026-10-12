@@ -213,7 +213,8 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
 
   app.get(`${API}/status`, async (req): Promise<ClientStatus> => {
     const device = requireDevice(req);
-    return { deviceName: device.name, serverName: os.hostname(), chunkSize: CHUNK_SIZE, concurrency: settings.concurrency, maxFileBytes: settings.maxFileBytes };
+    const freeBytes = await ctx.freeBytes(settings.destination).catch(() => 0);
+    return { deviceName: device.name, serverName: os.hostname(), chunkSize: CHUNK_SIZE, concurrency: settings.concurrency, maxFileBytes: settings.maxFileBytes, freeBytes };
   });
 
   function ownSession(req: FastifyRequest, device: DeviceRow): string {

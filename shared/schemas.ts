@@ -156,4 +156,6 @@ export interface ClientStatus {
   chunkSize: number;
   concurrency: number;
   maxFileBytes: number;
+  /** Free bytes on the backup drive, so the app can stop before preparing a file that will not fit. */
+  freeBytes: number;
 }

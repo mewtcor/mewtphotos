@@ -78,7 +78,35 @@ export function openDb(file: string): Db {
   // synchronous=FULL: a committed "verified" record must survive power loss.
   db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+/**
+ * Numbered upgrades for databases written by earlier versions. Step N runs once, inside one transaction,
+ * and sets user_version to N+1. Steps only add columns, so existing rows are kept as they are.
+ */
+const MIGRATIONS: Array<(db: Db) => void> = [
+  (db) => {
+    addColumn(db, 'uploads', 'hidden', 'INTEGER NOT NULL DEFAULT 0');
+    addColumn(db, 'uploads', 'pair_id', 'TEXT');
+    addColumn(db, 'uploads', 'pair_name', 'TEXT');
+  },
+];
+
+function addColumn(db: Db, table: string, column: string, definition: string): void {
+  const present = all<{ name: string }>(db, `PRAGMA table_info(${table})`).some((c) => c.name === column);
+  if (!present) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+function migrate(db: Db): void {
+  const version = get<{ user_version: number }>(db, 'PRAGMA user_version')!.user_version;
+  for (let step = version; step < MIGRATIONS.length; step++) {
+    tx(db, () => {
+      MIGRATIONS[step](db);
+      db.exec(`PRAGMA user_version = ${step + 1}`);
+    });
+  }
 }
 
 export function tx<T>(db: Db, fn: () => T): T {
@@ -120,6 +148,12 @@ export interface UploadRow {
   file_id: number | null;
   created_at: number;
   updated_at: number;
+  /** 1 when the sender marked the item hidden (stored under Hidden\). */
+  hidden: number;
+  /** Shared by the two parts of a Live Photo. */
+  pair_id: string | null;
+  /** File name of the other part of the pair, so both get the same stem. */
+  pair_name: string | null;
 }
 
 export interface DeviceRow {
