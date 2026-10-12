@@ -101,6 +101,31 @@ struct RunRecordTests {
         #expect(record.status == .finished)
     }
 
+    @Test("retrying failed items puts only them back in line and reopens a finished run")
+    func retryFailedOnly() {
+        var record = RunRecord.start(plan(["A", "B", "C"]), at: now)
+        record.record(.failed("timed out"), at: 0)
+        record.record(.unavailable("only in iCloud"), at: 1)
+        record.record(.verified, at: 2)
+        record.finishIfDone(at: now)
+        #expect(record.status == .finished)
+        #expect(record.retryFailed() == 1)
+        #expect(record.entries.map(\.outcome) == [.pending, .unavailable("only in iCloud"), .verified])
+        #expect(record.status == .running)
+        #expect(record.finishedAt == nil)
+    }
+
+    @Test("one failed item can be retried; other items cannot")
+    func retryOne() {
+        var record = RunRecord.start(plan(["A", "B"]), at: now)
+        record.record(.failed("timed out"), at: 0)
+        record.record(.verified, at: 1)
+        #expect(record.retry(at: 1) == false)
+        #expect(record.retry(at: 0) == true)
+        #expect(record.entries[0].outcome == .pending)
+        #expect(record.nextPending == 0)
+    }
+
     @Test("outcomes for indexes out of range are ignored")
     func outOfRange() {
         var record = RunRecord.start(plan(["A"]), at: now)

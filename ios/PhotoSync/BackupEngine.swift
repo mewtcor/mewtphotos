@@ -93,6 +93,21 @@ final class BackupModel {
         libraryCounts = Self.countLibrary()
     }
 
+    /// Sends every failed item of the last run again. Unavailable items stay as they are.
+    func retryFailed(pairing: AppModel) async {
+        guard !running, var saved = store.load(), saved.retryFailed() > 0 else { return }
+        try? store.save(saved)
+        await start(pairing: pairing)
+    }
+
+    /// Sends one failed item again. The run continues from it, like a Back up now.
+    func retry(assetId: String, pairing: AppModel) async {
+        guard !running, var saved = store.load(),
+              let index = saved.entries.firstIndex(where: { $0.assetId == assetId }), saved.retry(at: index) else { return }
+        try? store.save(saved)
+        await start(pairing: pairing)
+    }
+
     /// Asks the PC how many of this iPhone's photos it holds. A failed check keeps the last answer and sets
     /// `pcCountFailed`, so the screen can say the check did not work instead of showing nothing.
     func refreshPCCount(pairing: AppModel) async {
@@ -367,6 +382,11 @@ struct BackupView: View {
                     Button("Back up now") {
                         Task { await model.start(pairing: pairing) }
                     }
+                    if let failed = model.record?.totals.failed, failed > 0 {
+                        Button("Retry \(failed) failed") {
+                            Task { await model.retryFailed(pairing: pairing) }
+                        }
+                    }
                 }
                 if let stopMessage = model.stopMessage {
                     Text(stopMessage).foregroundStyle(.red)
@@ -435,6 +455,12 @@ struct BackupView: View {
                                 Text(Self.reason(entry.outcome))
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
+                                if Self.isFailed(entry.outcome) {
+                                    Button("Retry") {
+                                        Task { await model.retry(assetId: entry.assetId, pairing: pairing) }
+                                    }
+                                    .disabled(model.running)
+                                }
                             }
                         }
                     }
@@ -463,6 +489,11 @@ struct BackupView: View {
         guard let record, let index = record.nextPending else { return nil }
         let done = record.entries.filter { $0.outcome != .pending }.count
         return "Item \(done + 1) of \(record.entries.count): \(record.entries[index].fileName)"
+    }
+
+    private static func isFailed(_ outcome: ItemOutcome) -> Bool {
+        if case .failed = outcome { return true }
+        return false
     }
 
     private static func statusText(_ outcome: ItemOutcome) -> String {

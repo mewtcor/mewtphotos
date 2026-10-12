@@ -85,6 +85,39 @@ public struct RunRecord: Codable, Equatable, Sendable {
         status = .stopped
     }
 
+    /// Puts every failed item back in line to be sent again, and reopens a finished run so the next start
+    /// continues it. Unavailable items are not retried. Returns how many items were put back.
+    @discardableResult
+    public mutating func retryFailed() -> Int {
+        var count = 0
+        for index in entries.indices where Self.isFailed(entries[index].outcome) {
+            entries[index].outcome = .pending
+            count += 1
+        }
+        if count > 0 { reopen() }
+        return count
+    }
+
+    /// Puts one failed item back in line to be sent again. Returns false, and changes nothing, for any other item.
+    @discardableResult
+    public mutating func retry(at index: Int) -> Bool {
+        guard entries.indices.contains(index), Self.isFailed(entries[index].outcome) else { return false }
+        entries[index].outcome = .pending
+        reopen()
+        return true
+    }
+
+    private static func isFailed(_ outcome: ItemOutcome) -> Bool {
+        if case .failed = outcome { return true }
+        return false
+    }
+
+    private mutating func reopen() {
+        guard status == .finished else { return }
+        status = .running
+        finishedAt = nil
+    }
+
     /// Ends the run when nothing is pending any more. Returns true when it finished now.
     @discardableResult
     public mutating func finishIfDone(at now: Date) -> Bool {
