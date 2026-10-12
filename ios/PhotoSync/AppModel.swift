@@ -109,17 +109,58 @@ final class AppModel {
         }
     }
 
-    /// Sends one file on disk through the paired PC, reading it back in chunks. Used by the speed test.
-    func uploadTest(file: URL, filename: String, mimeType: String, size: Int64, sha256: String) async -> Result<UploadOutcome, PairFailure> {
-        guard let environment else {
-            return .failure(PairFailure(message: "PhotoSync could not open its storage on this phone."))
+    /// Sends a file on disk to the paired PC in the background, so it keeps going while the screen is locked.
+    /// `done` gets the result text when the transfer ends, if the app is still running then.
+    func startBackgroundUpload(file: URL, filename: String, mimeType: String, size: Int64, sha256: String,
+                               done: @escaping @MainActor (String) -> Void) async {
+        guard let environment, let connection = await environment.flow.pairedConnection() else {
+            done("This iPhone is not paired with a PC yet.")
+            return
         }
-        return await environment.flow.uploadTest(filename: filename, mimeType: mimeType, size: size, sha256: sha256) { offset, length in
-            let handle = try FileHandle(forReadingFrom: file)
-            defer { try? handle.close() }
-            try handle.seek(toOffset: UInt64(offset))
-            return try handle.read(upToCount: length) ?? Data()
+        let started = ContinuousClock.now
+        do {
+            let begun = try await connection.client.beginUpload(key: connection.key, filename: filename, mimeType: mimeType, size: size)
+            guard begun.offset < size else {
+                // The PC already has every byte from an earlier, interrupted transfer; only the finish is left.
+                done(await Self.finishText(connection, uploadId: begun.uploadId, sha256: sha256))
+                return
+            }
+            let source = begun.offset == 0 ? file : try BackgroundUploader.tail(of: file, from: begun.offset)
+            var request = URLRequest(url: connection.base.appendingPathComponent("api/v1/uploads/\(begun.uploadId)"))
+            request.httpMethod = "PATCH"
+            request.setValue("Bearer \(connection.key.revealForAuthorization())", forHTTPHeaderField: "Authorization")
+            request.setValue("application/offset+octet-stream", forHTTPHeaderField: "Content-Type")
+            request.setValue(String(begun.offset), forHTTPHeaderField: "Upload-Offset")
+            BackgroundUploader.shared.send(request, fromFile: source) { status, _ in
+                Task { @MainActor in
+                    guard let status, (200..<300).contains(status) else {
+                        done("The upload stopped before the PC had all of it. Tap upload again to resume.")
+                        return
+                    }
+                    let elapsed = Self.seconds(since: started)
+                    let sent = size - begun.offset
+                    let speed = TransferSpeed.mibPerSecond(bytes: sent, seconds: elapsed).map { String(format: "%.2f MiB/s", $0) } ?? "no speed"
+                    let finish = await Self.finishText(connection, uploadId: begun.uploadId, sha256: sha256)
+                    done(finish + " Sent \(sent) bytes in \(String(format: "%.1f", elapsed)) s, \(speed).")
+                }
+            }
+        } catch {
+            done("Upload failed. Check that the iPhone is on the same Wi-Fi as the PC, then tap upload again.")
         }
+    }
+
+    private static func finishText(_ connection: PairedConnection, uploadId: String, sha256: String) async -> String {
+        do {
+            let result = try await connection.client.finishUpload(key: connection.key, uploadId: uploadId, sha256: sha256)
+            return "Server status: \(result.status). Verified end to end: \(result.endToEndVerified ? "yes" : "no")."
+        } catch {
+            return "The PC has not confirmed the file yet. Tap upload again to finish it."
+        }
+    }
+
+    private static func seconds(since start: ContinuousClock.Instant) -> Double {
+        let parts = start.duration(to: .now).components
+        return Double(parts.seconds) + Double(parts.attoseconds) / 1e18
     }
 
     private static func bundleValue(_ key: String) -> String {

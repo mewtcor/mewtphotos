@@ -1,4 +1,4 @@
-// The upload speed test: the timing arithmetic, and the chunk loop against a scripted server.
+// The upload speed test: the timing arithmetic, and the open and finish calls against a scripted server.
 import Testing
 import Foundation
 @testable import PhotoSyncCore
@@ -15,24 +15,28 @@ struct UploadTests {
         #expect(TransferSpeed.mibPerSecond(bytes: 1_048_576, seconds: 0) == nil)
     }
 
-    @Test("chunks follow the server's offsets and the file is verified")
-    func chunksFollowServerOffsets() async throws {
+    @Test("opening an upload returns its id and the offset to send from")
+    func beginUpload() async throws {
         let fake = FakeTransport([
             .json(#"{"id":"s1"}"#),
-            .json(#"{"uploadId":"u1","status":"receiving","offset":0,"size":10}"#),
-            .json(#"{"offset":4}"#),
-            .json(#"{"offset":8}"#),
-            .json(#"{"offset":10}"#),
+            .json(#"{"uploadId":"u1","status":"receiving","offset":4,"size":10}"#),
+        ])
+        let client = ServerClient(base: URL(string: "http://127.0.0.1:8787")!, transport: fake)
+        let begun = try await client.beginUpload(key: DeviceKey("tok"), filename: "a.mov", mimeType: "video/quicktime", size: 10)
+        #expect(begun.uploadId == "u1")
+        #expect(begun.offset == 4)
+        let requests = await fake.requests()
+        #expect(requests.last?.url.path == "/api/v1/uploads")
+    }
+
+    @Test("finishing reports the server's status and its end-to-end check")
+    func finishUpload() async throws {
+        let fake = FakeTransport([
             .json(#"{"uploadId":"u1","status":"verified","sha256":"x","endToEndVerified":true,"path":"p"}"#),
         ])
         let client = ServerClient(base: URL(string: "http://127.0.0.1:8787")!, transport: fake)
-        let outcome = try await client.uploadFile(
-            key: DeviceKey("tok"), filename: "a.mov", mimeType: "video/quicktime", size: 10, sha256: "x", chunkBytes: 4
-        ) { _, length in Data(repeating: 1, count: length) }
-        #expect(outcome.status == "verified")
-        #expect(outcome.endToEndVerified)
-        #expect(outcome.sentBytes == 10)
-        let patches = await fake.requests().filter { $0.method == "PATCH" }
-        #expect(patches.map { $0.headers["Upload-Offset"] } == ["0", "4", "8"])
+        let done = try await client.finishUpload(key: DeviceKey("tok"), uploadId: "u1", sha256: "x")
+        #expect(done.status == "verified")
+        #expect(done.endToEndVerified)
     }
 }

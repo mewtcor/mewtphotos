@@ -20,8 +20,8 @@ final class DiagnosticsModel {
     private(set) var uploadText: String?
     private(set) var uploading = false
 
-    /// Writes the picked item's video to a temp file, hashes it, and uploads it to the paired PC. The timer
-    /// covers the network only: the bytes are read back from disk in 8 MiB chunks.
+    /// Writes the picked item's video to Application Support and starts a background upload to the PC. The
+    /// transfer keeps going while the screen is locked; the result shows here if the app is still open.
     func uploadVideo(pairing: AppModel) async {
         guard let asset, !uploading else { return }
         guard let resource = PHAssetResource.assetResources(for: asset)
@@ -30,28 +30,25 @@ final class DiagnosticsModel {
             return
         }
         uploading = true
-        uploadText = "Uploading. Keep the screen on until this message changes."
-        defer { uploading = false }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: url) }
-        let options = PHAssetResourceRequestOptions()
-        options.isNetworkAccessAllowed = false
+        uploadText = "Uploading in the background. You can lock the phone."
         do {
+            let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                                      appropriateFor: nil, create: true)
+            let url = support.appendingPathComponent("upload-test.mov")
+            try? FileManager.default.removeItem(at: url)
+            let options = PHAssetResourceRequestOptions()
+            options.isNetworkAccessAllowed = false
             try await PHAssetResourceManager.default().writeData(for: resource, toFile: url, options: options)
             let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0
             let hash = try sha256(of: url)
-            switch await pairing.uploadTest(file: url, filename: resource.originalFilename,
-                                            mimeType: "video/quicktime", size: size, sha256: hash) {
-            case .success(let outcome):
-                let speed = outcome.mibPerSecond.map { String(format: "%.2f MiB/s", $0) } ?? "no speed (zero time)"
-                uploadText = "Server status: \(outcome.status). \(ItemParts.formatBytes(size)) in "
-                    + "\(String(format: "%.1f", outcome.seconds)) s, \(speed), 8 MiB chunks. "
-                    + "Verified end to end: \(outcome.endToEndVerified ? "yes" : "no")."
-            case .failure(let failure):
-                uploadText = "Upload failed. " + failure.message
+            await pairing.startBackgroundUpload(file: url, filename: resource.originalFilename,
+                                                mimeType: "video/quicktime", size: size, sha256: hash) { [weak self] text in
+                self?.uploadText = text
+                self?.uploading = false
             }
         } catch {
             uploadText = "Could not read the video from the phone: \(error.localizedDescription)"
+            uploading = false
         }
     }
 

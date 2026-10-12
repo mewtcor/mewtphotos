@@ -1,6 +1,6 @@
-// The upload speed test (FEAS-04): sends one file through the backup's own /api/v1 routes in fixed-size
-// chunks and times the chunk transfer. The app supplies the bytes; Core moves them and measures the move.
-// The server's hash check runs after the timer stops, so it does not count against the speed.
+// The upload speed test (FEAS-04). Core opens an upload on the PC and closes it again; the bytes travel in
+// the app, in a background transfer (BackgroundUploader.swift), because a foreground request stops when the
+// screen locks. Core only does the small JSON calls, so it can be tested on Linux.
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -14,25 +14,17 @@ public enum TransferSpeed {
     }
 }
 
-public struct UploadOutcome: Equatable, Sendable {
-    /// What the server said about the file: `verified`, or `duplicate` if it already had the bytes.
-    public let status: String
-    public let endToEndVerified: Bool
-    /// Bytes sent in this run; less than the file size when the server resumed a partial upload.
-    public let sentBytes: Int64
-    /// Time spent sending chunks, not counting the server's final hash check.
-    public let seconds: Double
-    public let chunkBytes: Int
+/// The paired PC for one upload: the client for the JSON calls, the base URL for the file transfer, and the key.
+public struct PairedConnection: Sendable {
+    public let client: ServerClient
+    public let base: URL
+    public let key: DeviceKey
 
-    public init(status: String, endToEndVerified: Bool, sentBytes: Int64, seconds: Double, chunkBytes: Int) {
-        self.status = status
-        self.endToEndVerified = endToEndVerified
-        self.sentBytes = sentBytes
-        self.seconds = seconds
-        self.chunkBytes = chunkBytes
+    public init(client: ServerClient, base: URL, key: DeviceKey) {
+        self.client = client
+        self.base = base
+        self.key = key
     }
-
-    public var mibPerSecond: Double? { TransferSpeed.mibPerSecond(bytes: sentBytes, seconds: seconds) }
 }
 
 struct SessionBody: Encodable {
@@ -56,10 +48,6 @@ struct UploadReply: Decodable {
     let offset: Int64
 }
 
-struct OffsetReply: Decodable {
-    let offset: Int64
-}
-
 struct FinishBody: Encodable {
     let sha256: String
 }
@@ -70,42 +58,27 @@ struct FinishReply: Decodable {
 }
 
 extension ServerClient {
-    /// Sends `size` bytes as one upload, in `chunkBytes` pieces, starting from whatever offset the server
-    /// reports (so a resumed upload sends only the rest). Any refusal throws the usual ServerClientError.
-    public func uploadFile(key: DeviceKey, filename: String, mimeType: String, size: Int64, sha256: String,
-                           chunkBytes: Int, readChunk: @Sendable (Int64, Int) throws -> Data) async throws -> UploadOutcome {
+    /// Opens a session and an upload on the PC. Returns the upload id and the offset to send from: more than
+    /// zero when the PC already holds the start of this file.
+    public func beginUpload(key: DeviceKey, filename: String, mimeType: String, size: Int64) async throws -> (uploadId: String, offset: Int64) {
         guard size > 0 else { throw ServerClientError.invalidInput("The file is empty.") }
-        let auth = ["Authorization": "Bearer \(key.revealForAuthorization())"]
-        let json = auth.merging(["Content-Type": "application/json"]) { $1 }
+        let json = ["Authorization": "Bearer \(key.revealForAuthorization())", "Content-Type": "application/json"]
         let session = try decode(SessionReply.self, from: try await perform(
             "POST", "api/v1/sessions", headers: json,
             body: try JSONEncoder().encode(SessionBody(method: "native", selectedCount: 1))))
         let upload = try decode(UploadReply.self, from: try await perform(
             "POST", "api/v1/uploads", headers: json,
             body: try JSONEncoder().encode(UploadCreateBody(sessionId: session.id, filename: filename, size: size, mimeType: mimeType))))
-        let path = "api/v1/uploads/\(upload.uploadId)"
-        let chunkHeaders = auth.merging(["Content-Type": "application/offset+octet-stream"]) { $1 }
-        let started = ContinuousClock.now
-        var offset = upload.offset
-        while offset < size {
-            let length = Int(min(Int64(chunkBytes), size - offset))
-            let chunk = try readChunk(offset, length)
-            guard chunk.count == length else {
-                throw ServerClientError.invalidInput("The file could not be read from the phone at byte \(offset).")
-            }
-            let reply = try decode(OffsetReply.self, from: try await perform(
-                "PATCH", path, headers: chunkHeaders.merging(["Upload-Offset": String(offset)]) { $1 }, body: chunk))
-            // A chunk the server did not take would loop forever, so treat no progress as a failure.
-            guard reply.offset > offset else {
-                throw ServerClientError.unexpectedResponse("The PC did not accept the chunk at byte \(offset).")
-            }
-            offset = reply.offset
-        }
-        let parts = started.duration(to: .now).components
-        let seconds = Double(parts.seconds) + Double(parts.attoseconds) / 1e18
+        return (upload.uploadId, upload.offset)
+    }
+
+    /// Asks the PC to check the bytes it holds against `sha256` and file them. Only `verified` or `duplicate`
+    /// means the file is backed up.
+    public func finishUpload(key: DeviceKey, uploadId: String, sha256: String) async throws -> (status: String, endToEndVerified: Bool) {
+        let json = ["Authorization": "Bearer \(key.revealForAuthorization())", "Content-Type": "application/json"]
         let finished = try decode(FinishReply.self, from: try await perform(
-            "POST", "\(path)/finish", headers: json, body: try JSONEncoder().encode(FinishBody(sha256: sha256))))
-        return UploadOutcome(status: finished.status, endToEndVerified: finished.endToEndVerified,
-                             sentBytes: size - upload.offset, seconds: seconds, chunkBytes: chunkBytes)
+            "POST", "api/v1/uploads/\(uploadId)/finish", headers: json,
+            body: try JSONEncoder().encode(FinishBody(sha256: sha256))))
+        return (finished.status, finished.endToEndVerified)
     }
 }
