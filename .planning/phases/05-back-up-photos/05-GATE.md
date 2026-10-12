@@ -28,6 +28,10 @@ needed a PC server restart before it appeared). Commits: `8e5f50c`, `e517d66`, p
 
 ## Known gaps, carried into Phase 6
 
+- **RAW beside JPEG or HEIC is not sent yet.** The DNG reaches the PC with its own name (5 files checked), but the
+  companion JPEG or HEIC of the same photo does not. Decision (owner): keep both files. This is the first item of
+  Phase 6 (ORIG-02): export and send both, and count a photo as backed up only when both are verified.
+
 - **Hidden photos are not backed up (accepted limit, not a pass).** On builds 22 and 23 the app sees 0 hidden photos,
   even though the Hidden album holds IMG_4304 and IMG_5959. Reading the Hidden album directly also gave 0. The PC never
   receives them. The owner chose to accept this for now (option 2). Revisit before calling the library "complete".
