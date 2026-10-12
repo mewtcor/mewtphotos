@@ -32,7 +32,7 @@ The app exports original files from sample items. The user copies the same origi
 Tasks:
 1. Core: a comparison function that takes two lists of (name, SHA-256) and reports each match, mismatch or missing file. Tests cover all three outcomes.
 2. App: an export action for the picked item. It writes each original part to the app's Documents folder through `PHAssetResourceManager.writeData` with network access allowed for iCloud items, then shows the file list with sizes. The app computes SHA-256 with the Core hashing function and writes a manifest file.
-3. Export at least four kinds of item: HEIC, Live Photo (both halves), an edited photo, and a slow-motion or HDR video. Add RAW or ProRAW if the phone has one.
+3. Export at least four kinds of item: HEIC, Live Photo (both halves), an edited photo, and a slow-motion or HDR video. The user has RAW and ProRAW photos, so both are included: export one RAW (a DNG from a RAW-capable camera app) and one ProRAW (Apple's DNG from the Camera app). Record which PHAssetResource type each one reports, since the diagnostics screen will show what iOS gives for each.
 4. The user copies the same items from the phone over USB and runs the comparison on the PC.
 
 Acceptance:
@@ -61,5 +61,4 @@ The go/no-go note goes in `.planning/phases/02-feasibility-on-the-real-iphone/02
 
 ## Open questions
 
-- Whether the phone has RAW or ProRAW (affects Plan 02-02 step 3).
-- Whether the video test uses a file already on the phone or a new recording.
+- Resolved: the phone has RAW and ProRAW, and the video test uses videos already on the phone (including slow-motion or HDR if available).
