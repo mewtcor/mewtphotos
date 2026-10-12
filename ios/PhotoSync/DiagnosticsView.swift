@@ -52,6 +52,9 @@ final class DiagnosticsModel {
             exportText = "PhotoSync could not open Documents."
             return
         }
+        // A second export finds the first one's files here, and writeData fails on an existing file. This
+        // folder is only ever our own export copy, never the library, so clearing it is safe.
+        try? FileManager.default.removeItem(at: folder)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         var hashes: [String: String] = [:]
         var failed: [String] = []
