@@ -43,6 +43,8 @@ final class AppModel {
     var codeText = ""
     var isBusy = false
     var errorText: String?
+    /// A short confirmation after a successful action, such as a saved address.
+    var noticeText: String?
     var state: PairingState = .unpaired
     /// Set after the launch connection check; nil until it has run.
     var connectionText: String?
@@ -191,12 +193,14 @@ final class AppModel {
         guard let environment, !isBusy else { return }
         isBusy = true
         errorText = nil
+        noticeText = nil
         let result = await environment.flow.changeAddress(text)
         isBusy = false
         switch result {
         case .success(let info):
             connectionText = nil
             state = .paired(info)
+            noticeText = "Address saved."
         case .failure(let failure):
             errorText = failure.message
         }

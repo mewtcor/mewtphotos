@@ -101,6 +101,10 @@ struct ContentView: View {
                 Task { await model.forget() }
             }
             .disabled(model.isBusy)
+            if let noticeText = model.noticeText {
+                Text(noticeText)
+                    .foregroundStyle(.green)
+            }
             errorRows
         }
         .onAppear {
