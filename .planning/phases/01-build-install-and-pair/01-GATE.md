@@ -60,3 +60,42 @@ Checks inside the workflow (all passed on run 38184064100):
 ## Not verified
 
 - The app's launch and behaviour on a phone (Plan 06). The ipa has not been installed.
+
+## Device test results (docs/ios-phase1-device-test.md)
+
+Device: iPhone, iOS version and model not recorded. AltStore installed with an Apple ID; bundle id `com.mewtcor.photosync.U9L9367H2R` (AltStore adds the team suffix; it stayed the same on every launch).
+
+| Step | Result |
+|------|--------|
+| 1 Install build A | Installed, About showed build 5 |
+| 2 First launch | About showed "Version 0.1.0 (build 5)", Git 80b543d |
+| 3 Pair | "Paired with mewt" |
+| 4 Relaunch | "Connected to mewt" with nothing typed |
+| 5 AltStore refresh | Still "Connected to mewt" |
+| 6 Install build B over A | About showed build 6, still "Connected to mewt" |
+| 7 Log lines | See below |
+
+Launch lines from the exported log:
+
+```
+2026-10-11T23:48:39Z INFO launch launch=1 version=0.1.0 build=5 sha=80b543d bundle=com.mewtcor.photosync.U9L9367H2R alt_bundle=com.mewtcor.photosync keychain=not_found pairing=none
+2026-10-12T00:00:22Z INFO launch launch=2 version=0.1.0 build=5 sha=80b543d bundle=com.mewtcor.photosync.U9L9367H2R alt_bundle=com.mewtcor.photosync keychain=found pairing=present
+2026-10-12T00:01:21Z INFO launch launch=3 version=0.1.0 build=5 sha=80b543d bundle=com.mewtcor.photosync.U9L9367H2R alt_bundle=com.mewtcor.photosync keychain=found pairing=present
+2026-10-12T00:03:57Z INFO launch launch=4 version=0.1.0 build=6 sha=80b543d bundle=com.mewtcor.photosync.U9L9367H2R alt_bundle=com.mewtcor.photosync keychain=found pairing=present
+```
+
+Reading the lines: launch 2 is the first launch after pairing (key found, pairing present). Launch 3 follows the AltStore refresh, with the same bundle id and key found. Launch 4 is build 6 installed over build 5, with the key still found.
+
+The log has no connection-result line and no error-code line. The app does not write them (see the known gap in the device checklist), so the connection checks above are from the screen only.
+
+Not yet checked:
+- Only one PhotoSync icon after installing build 6 (step 6).
+- Searching the exported log for `Bearer` (step 7). Expected: no match.
+- Whether the Local Network prompt came back during the refresh (step 5).
+
+Gate conditions:
+- The unsigned build installs with AltStore: yes
+- It reaches the PC over plain HTTP: yes (paired and connected over http://192.168.4.152:8787)
+- The device key survives a relaunch and an AltStore refresh: yes (keychain=found on launches 2, 3 and 4)
+
+Decision: go, pending the three unchecked items above. Phase 1 closes when those are confirmed.
