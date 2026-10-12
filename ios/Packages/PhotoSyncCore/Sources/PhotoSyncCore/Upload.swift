@@ -41,11 +41,31 @@ struct UploadCreateBody: Encodable {
     let filename: String
     let size: Int64
     let mimeType: String
+    /// Sent so the PC can answer "already backed up" before any bytes move.
+    let sha256: String
 }
 
+/// The PC answers an upload request either with an open upload (`status` receiving, `offset`) or, when it
+/// already holds the file, with the finished result (`status` verified or duplicate, no `offset`).
 struct UploadReply: Decodable {
     let uploadId: String
-    let offset: Int64
+    let status: String?
+    let offset: Int64?
+}
+
+/// What the PC said when the upload was opened.
+public struct BegunUpload: Equatable, Sendable {
+    public let uploadId: String
+    /// Bytes the PC already holds; equal to the file size when there is nothing left to send.
+    public let offset: Int64
+    /// True when the PC already has this exact file, so nothing needs sending or finishing.
+    public let alreadyStored: Bool
+
+    public init(uploadId: String, offset: Int64, alreadyStored: Bool) {
+        self.uploadId = uploadId
+        self.offset = offset
+        self.alreadyStored = alreadyStored
+    }
 }
 
 struct FinishBody: Encodable {
@@ -58,9 +78,9 @@ struct FinishReply: Decodable {
 }
 
 extension ServerClient {
-    /// Opens a session and an upload on the PC. Returns the upload id and the offset to send from: more than
-    /// zero when the PC already holds the start of this file.
-    public func beginUpload(key: DeviceKey, filename: String, mimeType: String, size: Int64) async throws -> (uploadId: String, offset: Int64) {
+    /// Opens a session and an upload on the PC, sending the file's hash so a file the PC already has is
+    /// recognised before any bytes move. Otherwise the offset says where to start sending.
+    public func beginUpload(key: DeviceKey, filename: String, mimeType: String, size: Int64, sha256: String) async throws -> BegunUpload {
         guard size > 0 else { throw ServerClientError.invalidInput("The file is empty.") }
         let json = ["Authorization": "Bearer \(key.revealForAuthorization())", "Content-Type": "application/json"]
         let session = try decode(SessionReply.self, from: try await perform(
@@ -68,8 +88,10 @@ extension ServerClient {
             body: try JSONEncoder().encode(SessionBody(method: "native", selectedCount: 1))))
         let upload = try decode(UploadReply.self, from: try await perform(
             "POST", "api/v1/uploads", headers: json,
-            body: try JSONEncoder().encode(UploadCreateBody(sessionId: session.id, filename: filename, size: size, mimeType: mimeType))))
-        return (upload.uploadId, upload.offset)
+            body: try JSONEncoder().encode(UploadCreateBody(sessionId: session.id, filename: filename, size: size,
+                                                            mimeType: mimeType, sha256: sha256))))
+        let stored = upload.status == "verified" || upload.status == "duplicate"
+        return BegunUpload(uploadId: upload.uploadId, offset: upload.offset ?? size, alreadyStored: stored)
     }
 
     /// Asks the PC to check the bytes it holds against `sha256` and file them. Only `verified` or `duplicate`

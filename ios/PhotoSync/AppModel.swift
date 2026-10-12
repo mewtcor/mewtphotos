@@ -119,10 +119,15 @@ final class AppModel {
         }
         let started = ContinuousClock.now
         do {
-            let begun = try await connection.client.beginUpload(key: connection.key, filename: filename, mimeType: mimeType, size: size)
+            let begun = try await connection.client.beginUpload(key: connection.key, filename: filename, mimeType: mimeType,
+                                                                size: size, sha256: sha256)
+            if begun.alreadyStored {
+                done("Already backed up on the PC. Nothing was sent.")
+                return
+            }
             guard begun.offset < size else {
                 // The PC already has every byte from an earlier, interrupted transfer; only the finish is left.
-                done(await Self.finishText(connection, uploadId: begun.uploadId, sha256: sha256))
+                done(await finishText(connection, uploadId: begun.uploadId, sha256: sha256))
                 return
             }
             let source = begun.offset == 0 ? file : try BackgroundUploader.tail(of: file, from: begun.offset)
@@ -140,7 +145,7 @@ final class AppModel {
                     let elapsed = Self.seconds(since: started)
                     let sent = size - begun.offset
                     let speed = TransferSpeed.mibPerSecond(bytes: sent, seconds: elapsed).map { String(format: "%.2f MiB/s", $0) } ?? "no speed"
-                    let finish = await Self.finishText(connection, uploadId: begun.uploadId, sha256: sha256)
+                    let finish = await self.finishText(connection, uploadId: begun.uploadId, sha256: sha256)
                     done(finish + " Sent \(sent) bytes in \(String(format: "%.1f", elapsed)) s, \(speed).")
                 }
             }
@@ -149,12 +154,30 @@ final class AppModel {
         }
     }
 
-    private static func finishText(_ connection: PairedConnection, uploadId: String, sha256: String) async -> String {
+    /// Finishes an upload. If the answer is lost, the upload is kept for `retryPendingFinish`.
+    private func finishText(_ connection: PairedConnection, uploadId: String, sha256: String) async -> String {
         do {
             let result = try await connection.client.finishUpload(key: connection.key, uploadId: uploadId, sha256: sha256)
             return "Server status: \(result.status). Verified end to end: \(result.endToEndVerified ? "yes" : "no")."
         } catch {
-            return "The PC has not confirmed the file yet. Tap upload again to finish it."
+            if let directory = environment?.supportDirectory {
+                PendingFinish(uploadId: uploadId, sha256: sha256).save(in: directory)
+            }
+            return "The PC has not confirmed the file yet. It will be finished the next time PhotoSync opens."
+        }
+    }
+
+    /// Finishes an upload whose last step was lost, for example because the app was in the background.
+    /// Runs each time the app becomes active.
+    func retryPendingFinish() async {
+        guard let environment, let pending = PendingFinish.load(in: environment.supportDirectory),
+              let connection = await environment.flow.pairedConnection() else { return }
+        do {
+            let result = try await connection.client.finishUpload(key: connection.key, uploadId: pending.uploadId, sha256: pending.sha256)
+            PendingFinish.clear(in: environment.supportDirectory)
+            await environment.log.append(.info, code: "upload_finished", "finished a pending upload; server status \(result.status)")
+        } catch {
+            // Kept on disk: the next time the app becomes active tries again.
         }
     }
 

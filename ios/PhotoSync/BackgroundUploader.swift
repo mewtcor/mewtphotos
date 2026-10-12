@@ -45,3 +45,27 @@ final class BackgroundUploader: NSObject, URLSessionDataDelegate {
         return output
     }
 }
+
+/// An upload whose bytes reached the PC but whose finish step did not get an answer. It is kept on disk and
+/// retried when the app becomes active, so a finish lost to backgrounding is not lost for good.
+struct PendingFinish: Codable {
+    let uploadId: String
+    let sha256: String
+
+    private static func url(in directory: URL) -> URL {
+        directory.appendingPathComponent("pending-finish.json")
+    }
+
+    static func load(in directory: URL) -> PendingFinish? {
+        guard let data = try? Data(contentsOf: url(in: directory)) else { return nil }
+        return try? JSONDecoder().decode(PendingFinish.self, from: data)
+    }
+
+    func save(in directory: URL) {
+        try? JSONEncoder().encode(self).write(to: Self.url(in: directory), options: .atomic)
+    }
+
+    static func clear(in directory: URL) {
+        try? FileManager.default.removeItem(at: url(in: directory))
+    }
+}
