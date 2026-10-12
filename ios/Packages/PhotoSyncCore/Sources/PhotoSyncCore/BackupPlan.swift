@@ -55,7 +55,7 @@ public enum BackupPlanner {
 }
 
 /// Where one item ended up. `pending` means not yet decided, which is never allowed at the end of a run.
-public enum ItemOutcome: Equatable, Sendable {
+public enum ItemOutcome: Codable, Equatable, Sendable {
     case pending
     case alreadyOnPC
     case verified
