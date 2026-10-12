@@ -55,4 +55,24 @@ Action: delete the `PhotoSyncExport` folder from the phone (Files > On My iPhone
 
 ## Decision
 
-Pending the user's sign-off. The two items that matched show that originals can be read byte-identically from the phone and exported with SHA-256 verification. The user chose to stop the test early for time, so the Live Photo, the second RAW and the video-speed test (Plan 02-03) remain open. Phase 3 must not start until the user decides.
+**Go.** Signed off by the user, 2026-10-13.
+
+Phase 2 answered the feasibility questions:
+- **FEAS-03 (originals match):** a RAW-type photo (IMG_8048.DNG), a slow-motion video (IMG_8031.MOV) and a Live Photo's two parts (IMG_8068 HEIC and MOV) all read from the phone byte-identically. The phone's hashes match the USB copies.
+- **FEAS-04 (upload speed):** 20–25 MiB/s over home Wi-Fi in 8 MiB chunks (IMG_8069, IMG_8071), and about 22.6 MiB/s for a background upload of 910 MB (IMG_8075).
+- **Screen lock:** a foreground upload stops when the screen locks. A background transfer keeps going with the screen locked and completed on the PC (IMG_8075).
+
+Phase 3 must design around these:
+1. **Use a background transfer** (`BackgroundUploader` in build 12–13) for every upload, not a foreground request.
+2. **Send the hash when an upload opens**, so the PC can answer "already backed up" without a re-send.
+3. **Retry an unfinished finish step** when the app becomes active.
+
+Not tested, accepted by the user to skip for time:
+- IMG_7918.DNG (the second RAW).
+- ProRAW confirmation for IMG_8048.DNG. Both RAW files report `com.adobe.raw-image`.
+- FEAS-05 observations: an iCloud-only item, a hidden item, burst frames.
+
+Open clean-up:
+- Delete the test exports from the phone: Files > On My iPhone > PhotoSync > `PhotoSyncExport`. This deviation from the Phase 1 threat notes (T-01-15) was temporary for the USB test.
+- Delete the PC test copies in `Downloads\phase2-export` and `Downloads\phase2-usb` once Phase 3 starts.
+- The background-upload completion is lost if iOS terminates the app before the transfer ends. The next upload or the retry finishes it. Phase 3 should cover this.
