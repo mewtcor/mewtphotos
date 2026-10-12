@@ -124,10 +124,11 @@ export async function createUpload(ctx: Ctx, device: DeviceRow, body: z.infer<ty
   const insert = (status: string, tempPath: string, extra: { sha256?: string; fileId?: number } = {}) =>
     run(
       ctx.db,
-      `INSERT INTO uploads (id, session_id, device_id, filename, size, mime, last_modified, asset_id, temp_path, sha256, e2e_verified, status, file_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO uploads (id, session_id, device_id, filename, size, mime, last_modified, asset_id, temp_path, sha256, e2e_verified, status, file_id, created_at, updated_at, hidden, pair_id, pair_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id, body.sessionId, device.id, filename, body.size, body.mimeType || null, body.lastModified ?? null, body.assetId ?? null,
       tempPath, extra.sha256 ?? null, extra.sha256 ? 1 : 0, status, extra.fileId ?? null, now, now,
+      body.hidden ? 1 : 0, body.pairId ?? null, body.pairName ?? null,
     );
 
   // A sender that already knows the hash (native app) can skip sending known content.
@@ -298,29 +299,63 @@ async function place(ctx: Ctx, upload: UploadRow, sha256: string, e2e: boolean, 
     ctx.log('error', 'stored_file_damaged', `The earlier backup copy at ${existing.path} is missing or damaged. Storing the new upload and pointing the record at it.`);
   }
 
-  // Folder: embedded capture date when present; otherwise the documented fallback.
+  // A Live Photo's other part may already be stored: this part then joins its folder and takes its name.
+  const mate = upload.pair_id
+    ? get<{ path: string }>(
+        ctx.db,
+        `SELECT f.path FROM uploads u JOIN files f ON f.id = u.file_id
+         WHERE u.device_id = ? AND u.pair_id = ? AND u.id != ? AND u.status IN ('verified', 'duplicate') LIMIT 1`,
+        upload.device_id, upload.pair_id, upload.id,
+      )
+    : undefined;
+
+  // Folder: the other part's folder; otherwise the embedded capture date (or the documented fallback).
   let when: { year: string; month: string; capturedAt: string | null; source: string };
-  if (capture) {
-    when = capture;
+  let dir: string;
+  if (mate) {
+    dir = path.dirname(mate.path);
+    when = capture ?? { year: '', month: '', capturedAt: null, source: 'paired' };
   } else {
-    const trusted = plausibleTime(upload.last_modified);
-    const d = new Date(trusted ? upload.last_modified! : Date.now());
-    when = { year: String(d.getFullYear()), month: String(d.getMonth() + 1).padStart(2, '0'), capturedAt: null, source: trusted ? 'file-modified' : 'received' };
+    if (capture) {
+      when = capture;
+    } else {
+      const trusted = plausibleTime(upload.last_modified);
+      const d = new Date(trusted ? upload.last_modified! : Date.now());
+      when = { year: String(d.getFullYear()), month: String(d.getMonth() + 1).padStart(2, '0'), capturedAt: null, source: trusted ? 'file-modified' : 'received' };
+    }
+    // Hidden items keep their own tree so they never mix with the ordinary library.
+    const base = upload.hidden ? path.join(settings.destination, 'Hidden') : settings.destination;
+    dir = settings.organizeByDate ? resolveInside(base, when.year, when.month) : path.resolve(base);
   }
-  const dir = settings.organizeByDate ? resolveInside(settings.destination, when.year, when.month) : path.resolve(settings.destination);
   await mkdir(dir, { recursive: true });
 
   // Collision-safe name: never replace a different file; adopt an identical one.
   const { name: stem, ext } = path.parse(upload.filename);
   let target = '';
   let adopted = false;
-  for (let n = 1; n <= 10_000 && !target; n++) {
-    const candidate = resolveInside(dir, n === 1 ? upload.filename : `${stem} (${n})${ext}`);
+  if (mate) {
+    const candidate = resolveInside(dir, `${path.parse(mate.path).name}${ext}`);
     const st = await statOrNull(candidate);
     if (!st) target = candidate;
     else if (st.isFile() && st.size === upload.size && (await hashFile(candidate)) === sha256) {
       target = candidate;
       adopted = true;
+    } else {
+      throw new HttpError(409, 'pair_name_taken', `The other part of this Live Photo cannot take the matching name in its folder. Nothing was stored; send it again.`);
+    }
+  } else {
+    const pairExt = upload.pair_name ? path.extname(upload.pair_name) : '';
+    for (let n = 1; n <= 10_000 && !target; n++) {
+      const stemN = n === 1 ? stem : `${stem} (${n})`;
+      // A pair's first part also needs the other part's name free, so the two still match when stored.
+      if (pairExt && (await statOrNull(resolveInside(dir, `${stemN}${pairExt}`)))) continue;
+      const candidate = resolveInside(dir, `${stemN}${ext}`);
+      const st = await statOrNull(candidate);
+      if (!st) target = candidate;
+      else if (st.isFile() && st.size === upload.size && (await hashFile(candidate)) === sha256) {
+        target = candidate;
+        adopted = true;
+      }
     }
   }
   if (!target) throw new HttpError(500, 'no_free_name', `Could not find a free filename for "${upload.filename}".`);

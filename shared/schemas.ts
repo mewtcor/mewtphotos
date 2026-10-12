@@ -38,6 +38,12 @@ export const UploadCreate = z.object({
   assetId: z.string().max(200).optional(),
   /** If the sender already knows the hash, a duplicate is detected before any bytes are sent. */
   sha256: sha256Hex.optional(),
+  /** The item was marked hidden on the phone; it is stored under Hidden\. */
+  hidden: z.boolean().optional(),
+  /** Shared by the two parts of a Live Photo, so the PC stores them with matching names in one folder. */
+  pairId: z.string().min(1).max(200).optional(),
+  /** File name of the other part of the pair, for example IMG_0001.MOV when this part is IMG_0001.HEIC. */
+  pairName: z.string().min(1).max(255).optional(),
 });
 
 export const UploadFinish = z.object({ sha256: sha256Hex.optional() });
