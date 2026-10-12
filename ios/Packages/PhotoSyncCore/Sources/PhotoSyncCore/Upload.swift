@@ -43,6 +43,12 @@ struct UploadCreateBody: Encodable {
     let mimeType: String
     /// Sent so the PC can answer "already backed up" before any bytes move.
     let sha256: String
+    /// Stable identity of the library item; lets the PC answer by identity too.
+    let assetId: String?
+    /// The item was hidden on the phone; the PC stores it under Hidden.
+    let hidden: Bool
+    /// Modification time in milliseconds, used by the PC only when there is no capture date.
+    let lastModified: Int64?
 }
 
 /// The PC answers an upload request either with an open upload (`status` receiving, `offset`) or, when it
@@ -80,7 +86,8 @@ struct FinishReply: Decodable {
 extension ServerClient {
     /// Opens a session and an upload on the PC, sending the file's hash so a file the PC already has is
     /// recognised before any bytes move. Otherwise the offset says where to start sending.
-    public func beginUpload(key: DeviceKey, filename: String, mimeType: String, size: Int64, sha256: String) async throws -> BegunUpload {
+    public func beginUpload(key: DeviceKey, filename: String, mimeType: String, size: Int64, sha256: String,
+                            assetId: String? = nil, hidden: Bool = false, lastModified: Int64? = nil) async throws -> BegunUpload {
         guard size > 0 else { throw ServerClientError.invalidInput("The file is empty.") }
         let json = ["Authorization": "Bearer \(key.revealForAuthorization())", "Content-Type": "application/json"]
         let session = try decode(SessionReply.self, from: try await perform(
@@ -89,7 +96,8 @@ extension ServerClient {
         let upload = try decode(UploadReply.self, from: try await perform(
             "POST", "api/v1/uploads", headers: json,
             body: try JSONEncoder().encode(UploadCreateBody(sessionId: session.id, filename: filename, size: size,
-                                                            mimeType: mimeType, sha256: sha256))))
+                                                            mimeType: mimeType, sha256: sha256, assetId: assetId,
+                                                            hidden: hidden, lastModified: lastModified))))
         let stored = upload.status == "verified" || upload.status == "duplicate"
         return BegunUpload(uploadId: upload.uploadId, offset: upload.offset ?? size, alreadyStored: stored)
     }

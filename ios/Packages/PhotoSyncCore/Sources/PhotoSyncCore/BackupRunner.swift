@@ -25,12 +25,15 @@ public struct PreparedItem: Sendable {
     public let fileURL: URL
     public let bytes: Int64
     public let sha256: String
+    /// The item is hidden on the phone; sent so the PC stores it under Hidden.
+    public let hidden: Bool
 
-    public init(entry: RunEntry, fileURL: URL, bytes: Int64, sha256: String) {
+    public init(entry: RunEntry, fileURL: URL, bytes: Int64, sha256: String, hidden: Bool = false) {
         self.entry = entry
         self.fileURL = fileURL
         self.bytes = bytes
         self.sha256 = sha256
+        self.hidden = hidden
     }
 }
 

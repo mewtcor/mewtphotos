@@ -46,6 +46,8 @@ final class AppModel {
     /// A short confirmation after a successful action, such as a saved address.
     var noticeText: String?
     var state: PairingState = .unpaired
+    /// The photo backup run and its saved record; nil only if the app's storage could not be opened.
+    private(set) var backup: BackupModel?
     /// Set after the launch connection check; nil until it has run.
     var connectionText: String?
 
@@ -53,7 +55,9 @@ final class AppModel {
 
     init() {
         do {
-            environment = try AppEnvironment.make()
+            let made = try AppEnvironment.make()
+            environment = made
+            backup = BackupModel(supportDirectory: made.supportDirectory)
         } catch {
             environment = nil
             errorText = "PhotoSync could not open its storage on this phone. Restart the phone and try again."

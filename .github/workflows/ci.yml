@@ -76,7 +76,7 @@ jobs:
             echo "ios/project.yml mentions entitlements, extensions or capabilities"; exit 1
           fi
           # Photos is imported only by the read-only screens: the diagnostics (Phase 2) and the library check (Phase 4).
-          if grep -rEq --exclude=DiagnosticsView.swift --exclude=LibraryView.swift '^[[:space:]]*import[[:space:]]+(Photos|PhotosUI)\b' ios/PhotoSync ios/Packages/PhotoSyncCore/Sources 2>/dev/null; then
+          if grep -rEq --exclude=DiagnosticsView.swift --exclude=LibraryView.swift --exclude=BackupEngine.swift '^[[:space:]]*import[[:space:]]+(Photos|PhotosUI)\b' ios/PhotoSync ios/Packages/PhotoSyncCore/Sources 2>/dev/null; then
             echo "Photos/PhotosUI is imported outside DiagnosticsView.swift and LibraryView.swift"; exit 1
           fi
 

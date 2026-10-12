@@ -23,6 +23,11 @@ struct ContentView: View {
                     NavigationLink("Photo access and what is not on the PC") {
                         LibraryView(pairing: model)
                     }
+                    if let backup = model.backup {
+                        NavigationLink("Back up photos") {
+                            BackupView(pairing: model, model: backup)
+                        }
+                    }
                 }
                 Section("About") {
                     Text("Version \(model.versionText) (build \(model.buildText))")
