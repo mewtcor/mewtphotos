@@ -250,7 +250,10 @@ struct BackupView: View {
                 Text(BackupPlanner.editsNotice)
                     .font(.footnote)
                 if model.running {
-                    Text("Backing up. Keep this screen open until it finishes.")
+                    Text("Keep this screen open. The phone stays awake while the backup runs.")
+                    if let current = Self.currentText(model.record) {
+                        Text(current)
+                    }
                     Button("Stop", role: .destructive) { model.stop() }
                 } else {
                     Button("Back up now") {
@@ -277,6 +280,11 @@ struct BackupView: View {
                         ForEach(Array(problems.enumerated()), id: \.offset) { _, entry in
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(entry.fileName)
+                                if let date = entry.date {
+                                    Text(date.formatted(date: .abbreviated, time: .shortened))
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
                                 Text(Self.reason(entry.outcome))
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
@@ -296,6 +304,13 @@ struct BackupView: View {
     private static func totalsText(_ totals: RunTotals) -> String {
         "Considered \(totals.considered): already on the PC \(totals.alreadyOnPC), verified \(totals.verified), "
             + "failed \(totals.failed), unavailable \(totals.unavailable)."
+    }
+
+    /// "Item N of M: name" for the item being worked on, from the saved record.
+    private static func currentText(_ record: RunRecord?) -> String? {
+        guard let record, let index = record.nextPending else { return nil }
+        let done = record.entries.filter { $0.outcome != .pending }.count
+        return "Item \(done + 1) of \(record.entries.count): \(record.entries[index].fileName)"
     }
 
     private static func reason(_ outcome: ItemOutcome) -> String {
