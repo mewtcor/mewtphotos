@@ -38,7 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 2: Feasibility on the Real iPhone** - Go/no-go: stored parts per item type, byte-identical originals, video speed, iCloud/hidden/burst behaviour
 - [ ] **Phase 3: PC Server Upgrades** - Windows-only additive server changes so a native client gets truthful answers and Live Photo pairs stay together
 - [ ] **Phase 4: Pair and See What's Missing** - QR pairing, library access handling, and a read-only count of what the PC does not have yet
-- [ ] **Phase 5: Back Up Photos** - "Back up now" sends every photo as its original, with live progress and a result the PC confirms
+- [x] **Phase 5: Back Up Photos** - "Back up now" sends every photo as its original, with live progress and a result the PC confirms
 - [ ] **Phase 6: Videos, Live Photos, iCloud and Retry** - Complete library coverage, resumable large videos, iCloud downloads, retry
 
 ## Phase Details

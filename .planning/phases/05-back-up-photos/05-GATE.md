@@ -1,6 +1,6 @@
 # Phase 5 gate: back up photos
 
-Status: **open**. Not closed until the device checks below pass on the iPhone. Phase 6 does not start until this is closed.
+Status: **closed (go)** on 2026-10-13, with the gaps below recorded. Restricted access is recorded as untested, not as a pass. Phase 6 may start.
 
 Builds tested: 18 (first device run), 19 (screen: current item, failure dates), 20 (PC count for this iPhone; the count line
 needed a PC server restart before it appeared). Commits: `8e5f50c`, `e517d66`, plus the message change after build 20.
