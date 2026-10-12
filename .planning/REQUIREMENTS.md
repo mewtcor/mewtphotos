@@ -88,14 +88,14 @@ Requirements for the first usable native iPhone app. Each maps to one roadmap ph
 
 ### PC Server
 
-- [ ] **SRV-01**: Both files of a Live Photo are placed in the same year/month folder with matching base names, even across a month boundary or a name clash
-- [ ] **SRV-02**: Hidden items are stored under a separate `Hidden` folder (`Hidden\YYYY\MM\...`)
-- [ ] **SRV-03**: The "already backed up?" check confirms the file is still on disk at the expected size, not only that it was recorded
-- [ ] **SRV-04**: Re-sending the same item in one session does not create a second record or inflate the session's counts
-- [ ] **SRV-05**: When the final move of a file fails, the upload returns to a resumable state without restarting the PC app
-- [ ] **SRV-06**: The existing backup database upgrades automatically to the new format with no data loss
-- [ ] **SRV-07**: The PC tells the app how much free space it has so the app can stop before preparing a file that will not fit
-- [ ] **SRV-08**: The Safari page and Shortcut flows behave exactly as before, proven by the existing tests plus new regression tests
+- [x] **SRV-01**: Both files of a Live Photo are placed in the same year/month folder with matching base names, even across a month boundary or a name clash
+- [x] **SRV-02**: Hidden items are stored under a separate `Hidden` folder (`Hidden\YYYY\MM\...`)
+- [x] **SRV-03**: The "already backed up?" check confirms the file is still on disk at the expected size, not only that it was recorded
+- [x] **SRV-04**: Re-sending the same item in one session does not create a second record or inflate the session's counts
+- [x] **SRV-05**: When the final move of a file fails, the upload returns to a resumable state without restarting the PC app
+- [x] **SRV-06**: The existing backup database upgrades automatically to the new format with no data loss
+- [x] **SRV-07**: The PC tells the app how much free space it has so the app can stop before preparing a file that will not fit
+- [x] **SRV-08**: The Safari page and Shortcut flows behave exactly as before, proven by the existing tests plus new regression tests
 
 ## v2 Requirements
 
@@ -201,14 +201,14 @@ Which phases cover which requirements. Filled in during roadmap creation.
 | REP-05 | Phase 5 | Pending |
 | REP-06 | Phase 5 | Pending |
 | REP-07 | Phase 5 | Pending |
-| SRV-01 | Phase 3 | Pending |
-| SRV-02 | Phase 3 | Pending |
-| SRV-03 | Phase 3 | Pending |
-| SRV-04 | Phase 3 | Pending |
-| SRV-05 | Phase 3 | Pending |
-| SRV-06 | Phase 3 | Pending |
-| SRV-07 | Phase 3 | Pending |
-| SRV-08 | Phase 3 | Pending |
+| SRV-01 | Phase 3 | Complete |
+| SRV-02 | Phase 3 | Complete |
+| SRV-03 | Phase 3 | Complete |
+| SRV-04 | Phase 3 | Complete |
+| SRV-05 | Phase 3 | Complete |
+| SRV-06 | Phase 3 | Complete |
+| SRV-07 | Phase 3 | Complete |
+| SRV-08 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 59 total

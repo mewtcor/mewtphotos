@@ -1,0 +1,43 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": null,
+  "phases": [
+    {
+      "number": "1",
+      "name": "Build, Install and Pair",
+      "status": "in_progress"
+    },
+    {
+      "number": "2",
+      "name": "Feasibility on the Real iPhone",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "PC Server Upgrades",
+      "status": "pending"
+    },
+    {
+      "number": "4",
+      "name": "Pair and See What's Missing",
+      "status": "pending"
+    },
+    {
+      "number": "5",
+      "name": "Back Up Photos",
+      "status": "pending"
+    },
+    {
+      "number": "6",
+      "name": "Videos, Live Photos, iCloud and Retry",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step",
+    "reason": "Phase 01 of 6 · 0% · executing"
+  },
+  "updated_at": "2026-10-11T19:41:35.464Z"
+}
