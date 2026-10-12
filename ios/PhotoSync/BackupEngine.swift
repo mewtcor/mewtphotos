@@ -14,6 +14,7 @@ final class BackupModel {
     private(set) var stopMessage: String?
     /// How many of this iPhone's photos the PC holds; nil until it has been asked.
     private(set) var pcCount: Int?
+    private(set) var pcCountFailed = false
     private(set) var running = false
     private var stopRequested = false
     private let store: RunStore
@@ -81,11 +82,15 @@ final class BackupModel {
         await refreshPCCount(pairing: pairing)
     }
 
-    /// Asks the PC how many of this iPhone's photos it holds. A failed check leaves the last answer in place.
+    /// Asks the PC how many of this iPhone's photos it holds. A failed check keeps the last answer and sets
+    /// `pcCountFailed`, so the screen can say the check did not work instead of showing nothing.
     func refreshPCCount(pairing: AppModel) async {
         guard let connection = await pairing.connection() else { return }
-        if let count = try? await connection.client.storedAssetCount(key: connection.key) {
-            pcCount = count
+        do {
+            pcCount = try await connection.client.storedAssetCount(key: connection.key)
+            pcCountFailed = false
+        } catch {
+            pcCountFailed = true
         }
     }
 
@@ -287,6 +292,10 @@ struct BackupView: View {
                             Text("The PC has fewer of these photos than this run counted. Check the PC's backup folder, then run again.")
                                 .foregroundStyle(.red)
                         }
+                    }
+                    if model.pcCountFailed {
+                        Text("Could not check the PC's count. Make sure the PC is on and reachable, then reopen this screen.")
+                            .foregroundStyle(.red)
                     }
                 }
                 let problems = record.entries.filter {
