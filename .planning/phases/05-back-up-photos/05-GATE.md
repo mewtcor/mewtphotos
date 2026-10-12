@@ -10,7 +10,7 @@ needed a PC server restart before it appeared). Commits: `8e5f50c`, `e517d66`, p
 | Check | Build | Result |
 |-------|-------|--------|
 | Back up now sends photos and the totals match the PC log | 18 | Pass: 26 sent, 2 already on PC; PC log agreed |
-| Second run after the first finished sends only new items | 20 | Not yet proven. The later run showed 1015 already on PC and was still going at item 4035 of 4064; its final "verified" count is the check that is still needed |
+| Second run sends nothing: verified 0, already on PC 1015, finished | 20 | Pass. 4064 = 1015 + 0 + 0 + 3049. The PC holds 1,015, which matches the phone |
 | Stop midway, then Back up now carries on from the same place | 18 | Pass: 989 pending after the stop, then the run continued |
 | Current item and item N of M shown while running | 19 | Pass: "Item 4035 of 4064: IMG_7953.JPG" |
 | Keep-awake note shown while running | 19 | Pass |
@@ -20,7 +20,6 @@ needed a PC server restart before it appeared). Commits: `8e5f50c`, `e517d66`, p
 
 ## Not yet checked on the device
 
-- **Run twice sends nothing:** the second run's final "verified" count must be 0 (new photos aside).
 
 - **RAW (DNG) beside a JPEG or HEIC:** the PC stores the original with its own name.
 - **Hidden photo:** the PC stores it under the Hidden folder.
