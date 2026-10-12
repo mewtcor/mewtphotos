@@ -57,7 +57,8 @@ final class BackupModel {
             stopMessage = "Could not check with the PC. Make sure it is reachable, then try again."
             return
         }
-        let known = Set(zip(items, flags).filter { $0.1 }.map { $0.0.assetId })
+        var known = Set<String>()
+        for (item, held) in zip(items, flags) where held { known.insert(item.assetId) }
         let plan = BackupPlanner.plan(items, alreadyOnPC: known)
         let opened = RunRecord.open(existing: store.load(), plan: plan, at: Date())
         record = opened
@@ -83,19 +84,19 @@ final class BackupModel {
 
     /// Every item in the library, newest first, with what the planner needs. Hidden items and every burst frame
     /// are included; items outside the library fetch are not.
-    static func libraryItems() -> [LibraryItem] {
+    static func libraryItems() -> [PhotoSyncCore.LibraryItem] {
         let options = PHFetchOptions()
         options.includeHiddenAssets = true
         options.includeAllBurstAssets = true
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        var items: [LibraryItem] = []
+        var items: [PhotoSyncCore.LibraryItem] = []
         PHAsset.fetchAssets(with: options).enumerateObjects { asset, _, _ in
             let resources = PHAssetResource.assetResources(for: asset)
             let name = resources.first { $0.type == .photo || $0.type == .fullSizePhoto }?.originalFilename
                 ?? resources.first?.originalFilename ?? "item"
             let kind: ItemKind = asset.mediaType == .video ? .video
                 : (asset.mediaSubtypes.contains(.photoLive) ? .livePhoto : .photo)
-            items.append(LibraryItem(assetId: asset.localIdentifier, fileName: name, kind: kind,
+            items.append(PhotoSyncCore.LibraryItem(assetId: asset.localIdentifier, fileName: name, kind: kind,
                                      onPhone: true, hidden: asset.isHidden, date: asset.creationDate))
         }
         return items
