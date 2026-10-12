@@ -12,6 +12,8 @@ import PhotoSyncCore
 final class BackupModel {
     private(set) var record: RunRecord?
     private(set) var stopMessage: String?
+    /// What Photos returns for the run's fetch, and how many of those are hidden. Shown to diagnose hidden photos.
+    private(set) var libraryCounts: (total: Int, hidden: Int)?
     /// How many of this iPhone's photos the PC holds; nil until it has been asked.
     private(set) var pcCount: Int?
     private(set) var pcCountFailed = false
@@ -82,6 +84,10 @@ final class BackupModel {
         await refreshPCCount(pairing: pairing)
     }
 
+    func refreshLibraryCounts() {
+        libraryCounts = Self.countLibrary()
+    }
+
     /// Asks the PC how many of this iPhone's photos it holds. A failed check keeps the last answer and sets
     /// `pcCountFailed`, so the screen can say the check did not work instead of showing nothing.
     func refreshPCCount(pairing: AppModel) async {
@@ -97,6 +103,19 @@ final class BackupModel {
     private func stopFlag() -> Bool { stopRequested }
 
     private func workFolder() -> URL { work }
+
+    /// Counts the items the run's fetch returns and how many are hidden. Reads no files.
+    static func countLibrary() -> (total: Int, hidden: Int) {
+        let options = PHFetchOptions()
+        options.includeHiddenAssets = true
+        options.includeAllBurstAssets = true
+        let result = PHAsset.fetchAssets(with: options)
+        var hidden = 0
+        result.enumerateObjects { asset, _, _ in
+            if asset.isHidden { hidden += 1 }
+        }
+        return (result.count, hidden)
+    }
 
     /// Every item in the library, newest first, with what the planner needs. Hidden items and every burst frame
     /// are included; items outside the library fetch are not.
@@ -280,6 +299,10 @@ struct BackupView: View {
                 if let stopMessage = model.stopMessage {
                     Text(stopMessage).foregroundStyle(.red)
                 }
+                if let counts = model.libraryCounts {
+                    Text("The app's list of photos has \(counts.total) items, \(counts.hidden) of them hidden.")
+                        .font(.footnote)
+                }
             }
             if let record = model.record {
                 Section("Last run") {
@@ -348,7 +371,10 @@ struct BackupView: View {
         }
         .navigationTitle("Back up photos")
         .searchable(text: $search, prompt: "File name, e.g. IMG_4303")
-        .task { await model.refreshPCCount(pairing: pairing) }
+        .task {
+            model.refreshLibraryCounts()
+            await model.refreshPCCount(pairing: pairing)
+        }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the app pauses the run after the item in progress; the record keeps the rest.
             if phase != .active { model.stop() }
