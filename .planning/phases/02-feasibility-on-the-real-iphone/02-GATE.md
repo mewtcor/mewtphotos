@@ -11,12 +11,26 @@ Byte-identical originals were read from the phone and matched a copy made over U
 
 The phone's manifest for IMG_8048.DNG (79 bytes) holds the same hash.
 
+## Upload speed (FEAS-04, Plan 02-03)
+
+Uploads used the backup's own routes (`/api/v1/sessions`, `/uploads`, `PATCH` chunks, `/finish`) in 8 MiB chunks. The PC re-read each stored file and compared its hash with the one the phone sent.
+
+| File | Size | Speed | Chunks | Server status | End-to-end verified |
+|------|------|-------|--------|---------------|---------------------|
+| IMG_8069.MOV | 27.1 MB | 20.97 MiB/s (1.3 s) | 8 MiB | verified | yes |
+| IMG_8071.MOV | 249.2 MB | 24.44 MiB/s (10.2 s) | 8 MiB | verified | yes |
+
+**Screen lock:** failed. Starting an upload on IMG_8071.MOV and locking the phone for about 30 seconds ended with "Upload failed" on the phone. The PC stored nothing from that attempt. The likely cause is that iOS suspends ordinary network transfers when the screen locks. Resuming a partial upload after a lock is not confirmed.
+
+**Retry after the lock:** "Server status: duplicate". The PC already held IMG_8071.MOV from the successful run above. A duplicate is not a new backup, so this result doesn't test resuming.
+
+Still open: whether an upload resumes after a lock (it would need a background transfer, which is a Phase 3 design question).
+
 ## Not tested
 
 - IMG_7918.DNG (the 18.6 MB RAW). Skipped: the user asked to reduce the test to one photo and one video, for time.
-- IMG_7986 Live Photo (HEIC + paired MOV). Skipped for the same reason.
+- IMG_7986 Live Photo (HEIC + paired MOV). Skipped for the same reason. (IMG_8068 covers the Live Photo case.)
 - ProRAW for IMG_8048.DNG. Not confirmed on the phone. Both RAW files report `com.adobe.raw-image`.
-- FEAS-04 video upload speed (Plan 02-03). Not started.
 - FEAS-05 observations (iCloud-only item, hidden item, burst frames). Not tested.
 
 ## Bugs found and fixed during the test
