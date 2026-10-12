@@ -75,8 +75,9 @@ jobs:
           if grep -qiE 'entitlement|app-extension|extensionkit|appex|capabilit' ios/project.yml; then
             echo "ios/project.yml mentions entitlements, extensions or capabilities"; exit 1
           fi
-          if grep -rEq '^[[:space:]]*import[[:space:]]+(Photos|PhotosUI)\b' ios/PhotoSync ios/Packages/PhotoSyncCore/Sources 2>/dev/null; then
-            echo "Photos/PhotosUI is imported in a path where it must not be yet"; exit 1
+          # Phase 2 allows Photos in one file only: the read-only diagnostics screen.
+          if grep -rEq --exclude=DiagnosticsView.swift '^[[:space:]]*import[[:space:]]+(Photos|PhotosUI)\b' ios/PhotoSync ios/Packages/PhotoSyncCore/Sources 2>/dev/null; then
+            echo "Photos/PhotosUI is imported outside DiagnosticsView.swift"; exit 1
           fi
 
       - name: Add Swift to PATH

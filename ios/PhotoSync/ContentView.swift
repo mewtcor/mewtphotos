@@ -38,6 +38,11 @@ struct ContentView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                Section("Diagnostics") {
+                    NavigationLink("Stored parts of a photo or video") {
+                        DiagnosticsView()
+                    }
+                }
                 Section("Log") {
                     if let logURL = model.logURL {
                         ShareLink("Export log", item: logURL)
