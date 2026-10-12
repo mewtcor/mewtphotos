@@ -70,7 +70,8 @@ struct RunRecordTests {
     func finishedKeptThenReplaced() {
         var record = RunRecord.start(plan(["A"]), at: now)
         record.record(.verified, at: 0)
-        #expect(record.finishIfDone(at: now.addingTimeInterval(5)))
+        let finished = record.finishIfDone(at: now.addingTimeInterval(5))
+        #expect(finished)
         #expect(record.status == .finished)
         #expect(record.finishedAt == now.addingTimeInterval(5))
 
