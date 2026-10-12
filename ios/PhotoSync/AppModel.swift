@@ -109,6 +109,19 @@ final class AppModel {
         }
     }
 
+    /// Sends one file on disk through the paired PC, reading it back in chunks. Used by the speed test.
+    func uploadTest(file: URL, filename: String, mimeType: String, size: Int64, sha256: String) async -> Result<UploadOutcome, PairFailure> {
+        guard let environment else {
+            return .failure(PairFailure(message: "PhotoSync could not open its storage on this phone."))
+        }
+        return await environment.flow.uploadTest(filename: filename, mimeType: mimeType, size: size, sha256: sha256) { offset, length in
+            let handle = try FileHandle(forReadingFrom: file)
+            defer { try? handle.close() }
+            try handle.seek(toOffset: UInt64(offset))
+            return try handle.read(upToCount: length) ?? Data()
+        }
+    }
+
     private static func bundleValue(_ key: String) -> String {
         Bundle.main.object(forInfoDictionaryKey: key) as? String ?? "-"
     }

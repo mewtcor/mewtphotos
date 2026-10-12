@@ -162,7 +162,7 @@ public struct ServerClient: Sendable {
         return out.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func perform(_ method: String, _ path: String, headers: [String: String] = [:], body: Data? = nil) async throws -> Data {
+    func perform(_ method: String, _ path: String, headers: [String: String] = [:], body: Data? = nil) async throws -> Data {
         let request = HTTPRequest(method: method, url: base.appendingPathComponent(path), headers: headers, body: body)
         let response: HTTPResponse
         do {
@@ -180,7 +180,7 @@ public struct ServerClient: Sendable {
         return response.body
     }
 
-    private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+    func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {

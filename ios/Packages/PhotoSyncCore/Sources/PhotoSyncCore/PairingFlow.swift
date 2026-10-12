@@ -174,6 +174,32 @@ public actor PairingFlow {
 
     // ---- connection ----
 
+    // ---- upload test ----
+
+    /// Sends one file through the backup's own routes and returns the timing. Only the result reaches the
+    /// log; the key and the file's bytes never do.
+    public func uploadTest(filename: String, mimeType: String, size: Int64, sha256: String,
+                           readChunk: @Sendable (Int64, Int) throws -> Data) async -> Result<UploadOutcome, PairFailure> {
+        guard case .record(let record) = store.load(), let address = record.validAddress else {
+            return .failure(PairFailure(message: "This iPhone is not paired with a PC yet."))
+        }
+        guard case .found(let key) = keys.load() else {
+            return .failure(PairFailure(message: "The key for this PC is missing. Pair again with a fresh code."))
+        }
+        await log.register(secret: key.revealForAuthorization())
+        let client = ServerClient(base: address.baseURL, transport: transport)
+        let chunkBytes = 8 * 1024 * 1024 // matches CHUNK_SIZE on the server
+        do {
+            let outcome = try await client.uploadFile(key: key, filename: filename, mimeType: mimeType, size: size,
+                                                      sha256: sha256, chunkBytes: chunkBytes, readChunk: readChunk)
+            let speed = outcome.mibPerSecond.map { String(format: "%.2f MiB/s", $0) } ?? "no speed (zero time)"
+            await log.append(.info, code: "upload_test", "sent \(outcome.sentBytes) bytes in \(outcome.seconds) s, \(speed), chunks of \(chunkBytes) bytes; server status \(outcome.status)")
+            return .success(outcome)
+        } catch {
+            return .failure(await failure(for: error, networkCode: "upload_test_failed", otherCode: "upload_test_failed"))
+        }
+    }
+
     public func checkConnection() async -> ConnectionCheck {
         guard case .record(let record) = store.load(), let address = record.validAddress else {
             await log.append(.warn, code: "connection_failed", "no usable pairing record")

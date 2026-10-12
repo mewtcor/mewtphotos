@@ -17,6 +17,43 @@ final class DiagnosticsModel {
     private(set) var statusText = "Pick an item to see its stored parts."
     private(set) var exportText: String?
     private var asset: PHAsset?
+    private(set) var uploadText: String?
+    private(set) var uploading = false
+
+    /// Writes the picked item's video to a temp file, hashes it, and uploads it to the paired PC. The timer
+    /// covers the network only: the bytes are read back from disk in 8 MiB chunks.
+    func uploadVideo(pairing: AppModel) async {
+        guard let asset, !uploading else { return }
+        guard let resource = PHAssetResource.assetResources(for: asset)
+            .first(where: { $0.type == .video || $0.type == .fullSizeVideo }) else {
+            uploadText = "Pick an item with a video to test the upload."
+            return
+        }
+        uploading = true
+        uploadText = "Uploading. Keep the screen on until this message changes."
+        defer { uploading = false }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let options = PHAssetResourceRequestOptions()
+        options.isNetworkAccessAllowed = false
+        do {
+            try await PHAssetResourceManager.default().writeData(for: resource, toFile: url, options: options)
+            let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0
+            let hash = try sha256(of: url)
+            switch await pairing.uploadTest(file: url, filename: resource.originalFilename,
+                                            mimeType: "video/quicktime", size: size, sha256: hash) {
+            case .success(let outcome):
+                let speed = outcome.mibPerSecond.map { String(format: "%.2f MiB/s", $0) } ?? "no speed (zero time)"
+                uploadText = "Server status: \(outcome.status). \(ItemParts.formatBytes(size)) in "
+                    + "\(String(format: "%.1f", outcome.seconds)) s, \(speed), 8 MiB chunks. "
+                    + "Verified end to end: \(outcome.endToEndVerified ? "yes" : "no")."
+            case .failure(let failure):
+                uploadText = "Upload failed. " + failure.message
+            }
+        } catch {
+            uploadText = "Could not read the video from the phone: \(error.localizedDescription)"
+        }
+    }
 
     func load() async {
         guard let identifier = selection?.itemIdentifier else {
@@ -137,6 +174,7 @@ final class DiagnosticsModel {
 
 struct DiagnosticsView: View {
     @State private var model = DiagnosticsModel()
+    let pairing: AppModel
 
     var body: some View {
         Form {
@@ -164,6 +202,16 @@ struct DiagnosticsView: View {
                     }
                     if let exportText = model.exportText {
                         Text(exportText)
+                            .font(.footnote)
+                    }
+                }
+                Section("Upload speed test") {
+                    Button("Upload this video to the PC") {
+                        Task { await model.uploadVideo(pairing: pairing) }
+                    }
+                    .disabled(model.uploading)
+                    if let uploadText = model.uploadText {
+                        Text(uploadText)
                             .font(.footnote)
                     }
                 }

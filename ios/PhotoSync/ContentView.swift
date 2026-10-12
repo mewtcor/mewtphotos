@@ -40,7 +40,7 @@ struct ContentView: View {
                 }
                 Section("Diagnostics") {
                     NavigationLink("Stored parts of a photo or video") {
-                        DiagnosticsView()
+                        DiagnosticsView(pairing: model)
                     }
                 }
                 Section("Log") {
