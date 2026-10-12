@@ -259,6 +259,7 @@ struct BackupView: View {
     let pairing: AppModel
     let model: BackupModel
     @Environment(\.scenePhase) private var scenePhase
+    @State private var search = ""
 
     var body: some View {
         Form {
@@ -298,6 +299,29 @@ struct BackupView: View {
                             .foregroundStyle(.red)
                     }
                 }
+                if !search.isEmpty {
+                    // Searches every item in this run, not only the failed ones, so a missing photo can be told apart.
+                    let matches = record.entries.filter { $0.fileName.localizedCaseInsensitiveContains(search) }
+                    Section("Search this run") {
+                        if matches.isEmpty {
+                            Text("No item named \"\(search)\" is in this run. The phone's list of photos did not include it.")
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(Array(matches.prefix(50).enumerated()), id: \.offset) { _, entry in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.fileName)
+                                if let date = entry.date {
+                                    Text(date.formatted(date: .abbreviated, time: .shortened))
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(Self.statusText(entry.outcome))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
                 let problems = record.entries.filter {
                     if case .failed = $0.outcome { return true }
                     if case .unavailable = $0.outcome { return true }
@@ -323,6 +347,7 @@ struct BackupView: View {
             }
         }
         .navigationTitle("Back up photos")
+        .searchable(text: $search, prompt: "File name, e.g. IMG_4303")
         .task { await model.refreshPCCount(pairing: pairing) }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the app pauses the run after the item in progress; the record keeps the rest.
@@ -340,6 +365,15 @@ struct BackupView: View {
         guard let record, let index = record.nextPending else { return nil }
         let done = record.entries.filter { $0.outcome != .pending }.count
         return "Item \(done + 1) of \(record.entries.count): \(record.entries[index].fileName)"
+    }
+
+    private static func statusText(_ outcome: ItemOutcome) -> String {
+        switch outcome {
+        case .pending: return "Not reached yet in this run"
+        case .alreadyOnPC: return "Already on the PC"
+        case .verified: return "Verified on the PC"
+        case .failed(let reason), .unavailable(let reason): return reason
+        }
     }
 
     private static func reason(_ outcome: ItemOutcome) -> String {
