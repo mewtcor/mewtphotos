@@ -23,7 +23,9 @@ needed a PC server restart before it appeared). Commits: `8e5f50c`, `e517d66`, p
 
 
 - **RAW (DNG) beside a JPEG or HEIC:** the PC stores the original with its own name.
-- **Restricted access (Screen Time):** carried over from Phase 4.
+- **Restricted access (Screen Time):** carried over from Phase 4. Tried with Screen Time's Content & Privacy Photos
+  setting; PhotoSync still reported full access, so the restricted message has not been seen on the device. The message
+  code exists (LibraryAccess.restricted) but is untested on the phone. Recorded as untested, not as a pass.
 - **Phone totals match the PC's count** after a full run (REP-02). The PC count line is in; the comparison is manual.
 
 ## Known gaps, carried into Phase 6
