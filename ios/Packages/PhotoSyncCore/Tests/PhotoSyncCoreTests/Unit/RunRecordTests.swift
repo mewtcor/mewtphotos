@@ -66,19 +66,20 @@ struct RunRecordTests {
         #expect(RunRecord.open(existing: loaded, plan: plan(["A", "B"]), at: now).nextPending == 1)
     }
 
-    @Test("a finished run is kept, and a new run replaces it")
-    func finishedKeptThenReplaced() {
+    @Test("a finished run keeps its result until a new run starts")
+    func finishedKeptUntilReplaced() {
         var record = RunRecord.start(plan(["A"]), at: now)
         record.record(.verified, at: 0)
         let finished = record.finishIfDone(at: now.addingTimeInterval(5))
         #expect(finished)
         #expect(record.status == .finished)
         #expect(record.finishedAt == now.addingTimeInterval(5))
+        #expect(record.totals.verified == 1)
 
-        let kept = RunRecord.open(existing: record, plan: plan(["A", "B"]), at: now.addingTimeInterval(100))
-        #expect(kept.status == .finished)
-        let fresh = RunRecord.open(existing: record, plan: plan(["A", "B"]), at: now.addingTimeInterval(100))
-        #expect(fresh.status == .finished)
+        // Starting again replaces the finished record with a new running one.
+        let next = RunRecord.open(existing: record, plan: plan(["A", "B"]), at: now.addingTimeInterval(100))
+        #expect(next.status == .running)
+        #expect(next.entries.count == 2)
     }
 
     @Test("a new run after a finished one starts again from the plan")
