@@ -43,9 +43,11 @@ public enum ExportManifest {
     public static func parse(_ text: String) -> [String: String] {
         var out: [String: String] = [:]
         for line in text.split(separator: "\n") {
-            let parts = line.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
-            guard parts.count == 2 else { continue }
-            out[String(parts[1])] = String(parts[0])
+            // The hash runs up to the first space; the name starts after the two spaces that follow it.
+            let hash = line.prefix { $0 != " " }
+            let name = line.dropFirst(hash.count + 2)
+            guard !hash.isEmpty, !name.isEmpty else { continue }
+            out[String(name)] = String(hash)
         }
         return out
     }
