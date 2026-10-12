@@ -119,6 +119,14 @@ export async function createUpload(ctx: Ctx, device: DeviceRow, body: z.infer<ty
   if (!get(ctx.db, 'SELECT id FROM sessions WHERE id = ? AND device_id = ?', body.sessionId, device.id)) {
     throw new HttpError(404, 'unknown_session', 'Unknown backup session.');
   }
+  // SRV-04: the same item sent again in one session gets the record it already has, not a second row that
+  // would inflate the session's counts. Matched by hash, or by asset identifier and size; never by name alone.
+  const same = body.sha256
+    ? get<UploadRow>(ctx.db, `SELECT * FROM uploads WHERE session_id = ? AND sha256 = ? AND status IN ('verified', 'duplicate') LIMIT 1`, body.sessionId, body.sha256)
+    : body.assetId
+      ? get<UploadRow>(ctx.db, `SELECT * FROM uploads WHERE session_id = ? AND asset_id = ? AND size = ? AND status IN ('verified', 'duplicate') LIMIT 1`, body.sessionId, body.assetId, body.size)
+      : undefined;
+  if (same) return resultOf(ctx, same.id);
   const now = Date.now();
   const id = randomUUID();
   const insert = (status: string, tempPath: string, extra: { sha256?: string; fileId?: number } = {}) =>

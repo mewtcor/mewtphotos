@@ -305,26 +305,42 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
     }
   });
 
+  /** A recorded file counts only while it still sits on disk at the recorded size (SRV-03). */
+  async function storedOnDisk(sha256: string): Promise<boolean> {
+    const file = get<{ path: string; size: number }>(db, `SELECT path, size FROM files WHERE sha256 = ? AND verify_status = 'ok'`, sha256);
+    return !!file && (await stat(file.path).then((s) => s.isFile() && s.size === file.size, () => false));
+  }
+
   // "Do you already have this content?" for simple clients (Apple Shortcuts) that can hash a
   // file but cannot easily build the JSON for /assets/check. Known = recorded, passed its last
   // verification, and still on disk at the recorded size.
   app.get(`${API}/files/:sha256`, async (req) => {
     requireDevice(req);
     const sha256 = z.string().regex(/^[0-9a-fA-F]{64}$/).parse((req.params as { sha256?: string }).sha256).toLowerCase();
-    const file = get<{ path: string; size: number }>(db, `SELECT path, size FROM files WHERE sha256 = ? AND verify_status = 'ok'`, sha256);
-    const onDisk = file && (await stat(file.path).then((s) => s.size === file.size, () => false));
+    const file = get<{ path: string }>(db, `SELECT path FROM files WHERE sha256 = ? AND verify_status = 'ok'`, sha256);
     // `status` duplicates `known` as text because Shortcuts compares text more reliably than booleans.
-    return onDisk ? { known: true, status: 'stored', path: file.path } : { known: false, status: 'missing' };
+    return (await storedOnDisk(sha256)) && file ? { known: true, status: 'stored', path: file.path } : { known: false, status: 'missing' };
   });
 
-  // Lets a sender with stable asset identifiers or hashes skip what is already recorded.
+  // Lets a sender with stable asset identifiers or hashes skip what is already recorded. An item counts only
+  // while its stored copy is still on disk at the recorded size (SRV-03): a record alone is not enough.
   app.post(`${API}/assets/check`, async (req) => {
     const device = requireDevice(req);
     const { items } = AssetCheck.parse(req.body);
-    const known = items.map((item) => {
-      if (item.sha256 && get(db, `SELECT id FROM files WHERE sha256 = ? AND verify_status = 'ok'`, item.sha256)) return true;
-      return !!item.assetId && !!get(db, `SELECT id FROM uploads WHERE device_id = ? AND asset_id = ? AND status IN ('verified', 'duplicate')`, device.id, item.assetId);
-    });
+    const known = await Promise.all(
+      items.map(async (item) => {
+        if (item.sha256 && (await storedOnDisk(item.sha256))) return true;
+        if (!item.assetId) return false;
+        const rows = all<{ sha256: string }>(
+          db,
+          `SELECT f.sha256 FROM uploads u JOIN files f ON f.id = u.file_id
+           WHERE u.device_id = ? AND u.asset_id = ? AND u.status IN ('verified', 'duplicate')`,
+          device.id, item.assetId,
+        );
+        for (const row of rows) if (await storedOnDisk(row.sha256)) return true;
+        return false;
+      }),
+    );
     return { known };
   });
 
