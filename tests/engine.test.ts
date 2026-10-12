@@ -297,6 +297,29 @@ describe('interrupted transfers', () => {
     expect(overview.logs.some((l) => l.code === 'client_disconnected')).toBe(true);
   });
 
+  it('asks the phone to wait while the earlier attempt is still open, then resumes it', async () => {
+    const s = await server();
+    const port = await s.listen();
+    const data = randomBytes(50_000);
+    const create = { sessionId: await s.newSession(), filename: 'busy.jpg', size: data.length, lastModified: 1_700_000_000_000 };
+    const { uploadId } = (await s.phone({ method: 'POST', url: `${API}/uploads`, payload: create })).json() as { uploadId: string };
+    timeouts.chunkIdleMs = 500;
+    try {
+      const stalled = rawRequest(port, { method: 'PATCH', path: `${API}/uploads/${uploadId}`, headers: { authorization: `Bearer ${s.token}`, ...chunkHeaders(0), 'content-length': data.length } }, (req) => {
+        req.write(data.subarray(0, 10_000));
+      }).catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const busy = await s.phone({ method: 'POST', url: `${API}/uploads`, payload: { ...create, sessionId: await s.newSession() } });
+      expect(busy.statusCode).toBe(409);
+      expect(busy.json()).toMatchObject({ error: 'upload_busy' });
+      await stalled;
+    } finally {
+      timeouts.chunkIdleMs = 60_000;
+    }
+    const again = (await s.phone({ method: 'POST', url: `${API}/uploads`, payload: create })).json();
+    expect(again).toMatchObject({ uploadId, offset: 10_000 });
+  });
+
   it('abandons a stalled chunk, logs a timeout, and lets it resume', async () => {
     const s = await server();
     const port = await s.listen();

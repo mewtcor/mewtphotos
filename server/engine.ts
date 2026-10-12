@@ -161,7 +161,12 @@ export async function createUpload(ctx: Ctx, device: DeviceRow, body: z.infer<ty
        ORDER BY created_at DESC LIMIT 1`,
       device.id, filename, body.size, body.lastModified,
     );
-    if (prior && !ctx.active.has(prior.id)) {
+    // While the earlier attempt is still open (its stalled connection has not timed out yet), say so: a new
+    // upload here would resend the whole file. The phone waits and asks again.
+    if (prior && ctx.active.has(prior.id)) {
+      throw new HttpError(409, 'upload_busy', 'The earlier attempt at this file is still open. Trying again shortly will resume it.');
+    }
+    if (prior) {
       run(ctx.db, 'UPDATE uploads SET session_id = ?, updated_at = ? WHERE id = ?', body.sessionId, now, prior.id);
       return { uploadId: prior.id, status: 'receiving', offset: await currentOffset(prior), size: prior.size };
     }

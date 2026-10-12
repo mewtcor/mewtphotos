@@ -98,14 +98,25 @@ extension ServerClient {
         let session = try decode(SessionReply.self, from: try await perform(
             "POST", "api/v1/sessions", headers: json,
             body: try JSONEncoder().encode(SessionBody(method: "native", selectedCount: 1))))
-        let upload = try decode(UploadReply.self, from: try await perform(
-            "POST", "api/v1/uploads", headers: json,
-            body: try JSONEncoder().encode(UploadCreateBody(sessionId: session.id, filename: filename, size: size,
-                                                            mimeType: mimeType, sha256: sha256, assetId: assetId,
-                                                            hidden: hidden, lastModified: lastModified,
-                                                            pairId: pairId, pairName: pairName))))
+        let upload = try await createUploadWaitingForBusy(headers: json, body: try JSONEncoder().encode(
+            UploadCreateBody(sessionId: session.id, filename: filename, size: size, mimeType: mimeType, sha256: sha256,
+                             assetId: assetId, hidden: hidden, lastModified: lastModified, pairId: pairId, pairName: pairName)))
         let stored = upload.status == "verified" || upload.status == "duplicate"
         return BegunUpload(uploadId: upload.uploadId, offset: upload.offset ?? size, alreadyStored: stored)
+    }
+
+    /// The PC answers `upload_busy` while an earlier, stalled attempt at this file is still open. That attempt is
+    /// released after about a minute, so wait and ask again; then the upload resumes instead of starting over.
+    private func createUploadWaitingForBusy(headers: [String: String], body: Data) async throws -> UploadReply {
+        var attempt = 1
+        while true {
+            do {
+                return try decode(UploadReply.self, from: try await perform("POST", "api/v1/uploads", headers: headers, body: body))
+            } catch ServerClientError.server(let status, let code, _) where status == 409 && code == "upload_busy" && attempt < 20 {
+                attempt += 1
+                try await Task.sleep(for: .seconds(4))
+            }
+        }
     }
 
     /// Asks the PC to check the bytes it holds against `sha256` and file them. Only `verified` or `duplicate`
