@@ -17,12 +17,12 @@ needed a PC server restart before it appeared). Commits: `8e5f50c`, `e517d66`, p
 | Failed and unavailable rows show a date | 19 | Pass |
 | PC count line shows "The PC holds N of this iPhone's photos." | 20 | Pass after the PC server restart; before the restart the server returned 404 and the line was hidden |
 | Failure message when the PC count cannot be checked | after 20 | Not yet on a device; next build |
+| Burst of 6 frames: every frame is listed, stored and verified on the PC (IMG_8100 to IMG_8105) | 25 | Pass. Build 24 failed to compile (a name clash) and was fixed; build 25 was the first to carry the fix. Before the fix only IMG_8104 arrived and the other five showed "no longer in the library" |
 
 ## Not yet checked on the device
 
 
 - **RAW (DNG) beside a JPEG or HEIC:** the PC stores the original with its own name.
-- **Burst photo:** every frame is listed and stored.
 - **Restricted access (Screen Time):** carried over from Phase 4.
 - **Phone totals match the PC's count** after a full run (REP-02). The PC count line is in; the comparison is manual.
 
