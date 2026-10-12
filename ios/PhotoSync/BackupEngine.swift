@@ -150,7 +150,12 @@ final class BackupModel {
     /// Exports one original to the work folder. Checks the phone's free space first; an original that cannot be
     /// read without iCloud is reported as not supported, never as backed up.
     static func prepare(_ entry: RunEntry, work: URL) async throws -> PreparedItem {
-        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [entry.assetId], options: nil).firstObject else {
+        // Without these options Photos leaves out burst frames other than the key photo, and hidden photos, so the
+        // item looks deleted. The same options as the library list keep the two in step.
+        let options = PHFetchOptions()
+        options.includeHiddenAssets = true
+        options.includeAllBurstAssets = true
+        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [entry.assetId], options: options).firstObject else {
             throw ItemError.unavailable("It is no longer in the library.")
         }
         guard let resource = PHAssetResource.assetResources(for: asset)
