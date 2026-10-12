@@ -223,7 +223,7 @@ final class BackupModel {
         let main = PreparedPart(fileName: item.entry.fileName, fileURL: item.fileURL, bytes: item.bytes, sha256: item.sha256)
         results.append(try await sendPart(main, item: item, assetId: item.entry.assetId, pairId: pairId,
                                           pairName: item.companions.first?.fileName, connection: connection))
-        return ItemParts.combine(results)
+        return PhotoParts.combine(results)
     }
 
     /// Opens the upload for one file, sends the bytes in the background, and finishes it.

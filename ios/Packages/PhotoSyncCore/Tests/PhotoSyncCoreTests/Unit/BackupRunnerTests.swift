@@ -215,13 +215,13 @@ struct RetryAndSpaceTests {
     }
 }
 
-@Suite("Items with several parts")
-struct ItemPartsCombineTests {
+@Suite("Photos with several parts")
+struct PhotoPartsCombineTests {
     @Test("an item is backed up only when every part is verified or already held")
     func everyPart() {
-        #expect(ItemParts.combine([.verified, .verified]) == .verified)
-        #expect(ItemParts.combine([.alreadyOnPC, .verified]) == .verified)
-        #expect(ItemParts.combine([.alreadyOnPC, .alreadyOnPC]) == .alreadyOnPC)
-        #expect(ItemParts.combine([.verified]) == .verified)
+        #expect(PhotoParts.combine([.verified, .verified]) == .verified)
+        #expect(PhotoParts.combine([.alreadyOnPC, .verified]) == .verified)
+        #expect(PhotoParts.combine([.alreadyOnPC, .alreadyOnPC]) == .alreadyOnPC)
+        #expect(PhotoParts.combine([.verified]) == .verified)
     }
 }

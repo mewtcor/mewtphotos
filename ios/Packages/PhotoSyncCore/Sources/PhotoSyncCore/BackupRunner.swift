@@ -57,8 +57,8 @@ public struct PreparedPart: Sendable {
     }
 }
 
-/// The rule for an item with several parts: backed up only when every part is verified or already on the PC.
-public enum ItemParts {
+/// The rule for a photo with several parts: backed up only when every part is verified or already on the PC.
+public enum PhotoParts {
     public static func combine(_ results: [SendResult]) -> SendResult {
         results.allSatisfy { $0 == .alreadyOnPC } ? .alreadyOnPC : .verified
     }
