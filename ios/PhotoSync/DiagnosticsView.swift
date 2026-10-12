@@ -42,7 +42,8 @@ final class DiagnosticsModel {
             let size = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0
             let hash = try sha256(of: url)
             await pairing.startBackgroundUpload(file: url, filename: resource.originalFilename,
-                                                mimeType: "video/quicktime", size: size, sha256: hash) { [weak self] text in
+                                                mimeType: "video/quicktime", size: size, sha256: hash,
+                                                lastModified: asset.creationDate.map { Int64($0.timeIntervalSince1970 * 1000) }) { [weak self] text in
                 self?.uploadText = text
                 self?.uploading = false
             }

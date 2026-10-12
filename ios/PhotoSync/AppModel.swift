@@ -118,6 +118,7 @@ final class AppModel {
     /// Sends a file on disk to the paired PC in the background, so it keeps going while the screen is locked.
     /// `done` gets the result text when the transfer ends, if the app is still running then.
     func startBackgroundUpload(file: URL, filename: String, mimeType: String, size: Int64, sha256: String,
+                               lastModified: Int64? = nil,
                                done: @escaping @MainActor (String) -> Void) async {
         guard let environment, let connection = await environment.flow.pairedConnection() else {
             done("This iPhone is not paired with a PC yet.")
@@ -126,7 +127,7 @@ final class AppModel {
         let started = ContinuousClock.now
         do {
             let begun = try await connection.client.beginUpload(key: connection.key, filename: filename, mimeType: mimeType,
-                                                                size: size, sha256: sha256)
+                                                                size: size, sha256: sha256, lastModified: lastModified)
             if begun.alreadyStored {
                 done("Already backed up on the PC. Nothing was sent.")
                 return
