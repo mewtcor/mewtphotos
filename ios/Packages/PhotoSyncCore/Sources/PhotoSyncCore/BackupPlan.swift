@@ -48,7 +48,7 @@ public enum BackupPlanner {
     public static func plan(_ items: [LibraryItem], alreadyOnPC: Set<String>) -> [(item: LibraryItem, decision: PlanDecision)] {
         items.map { item in
             if alreadyOnPC.contains(item.assetId) { return (item, .alreadyOnPC) }
-            if item.kind == .video || !item.onPhone { return (item, .unavailable(unsupportedReason)) }
+            if !item.onPhone { return (item, .unavailable(unsupportedReason)) }
             return (item, .send)
         }
     }

@@ -168,7 +168,9 @@ final class BackupModel {
             throw ItemError.unavailable("It is no longer in the library.")
         }
         let resources = PHAssetResource.assetResources(for: asset)
-        guard let resource = resources.first(where: { $0.type == .photo || $0.type == .fullSizePhoto }) else {
+        // A video's original is its .video resource; a photo's is .photo, or .fullSizePhoto when that is all there is.
+        let mainTypes: [PHAssetResourceType] = asset.mediaType == .video ? [.video] : [.photo, .fullSizePhoto]
+        guard let resource = resources.first(where: { mainTypes.contains($0.type) }) else {
             throw ItemError.unavailable(BackupPlanner.unsupportedReason)
         }
         // The other original of the same photo: a RAW's JPEG or HEIC (alternatePhoto), or a Live Photo's video
@@ -321,6 +323,8 @@ final class BackupModel {
         case "dng": return "image/x-adobe-dng"
         case "jpg", "jpeg": return "image/jpeg"
         case "png": return "image/png"
+        case "mov": return "video/quicktime"
+        case "mp4": return "video/mp4"
         default: return "application/octet-stream"
         }
     }
