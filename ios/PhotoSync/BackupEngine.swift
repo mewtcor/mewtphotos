@@ -54,7 +54,7 @@ final class BackupModel {
             UIApplication.shared.isIdleTimerDisabled = false
         }
 
-        let items = BackupModel.libraryItems()
+        let (items, paired) = BackupModel.libraryItems()
         let flags: [Bool]
         do {
             flags = try await connection.client.knownAssets(key: connection.key, assetIds: items.map(\.assetId))
@@ -63,7 +63,9 @@ final class BackupModel {
             return
         }
         var known = Set<String>()
-        for (item, held) in zip(items, flags) where held { known.insert(item.assetId) }
+        // A photo with a second original is not skipped on the strength of its first part. The export re-checks each
+        // part (the PC answers "already backed up" per file), so a missing companion is still sent.
+        for (item, held) in zip(items, flags) where held && !paired.contains(item.assetId) { known.insert(item.assetId) }
         let plan = BackupPlanner.plan(items, alreadyOnPC: known)
         let opened = RunRecord.open(existing: store.load(), plan: plan, at: Date())
         record = opened
@@ -136,18 +138,22 @@ final class BackupModel {
 
     /// Every item in the library, newest first, with what the planner needs. Hidden items and every burst frame
     /// are included.
-    static func libraryItems() -> [PhotoSyncCore.LibraryItem] {
+    /// The items, plus the identifiers of photos that have a second original (a RAW's JPEG or HEIC). Those are never
+    /// skipped as "already on the PC" from the first part alone, so the second part is always checked and sent.
+    static func libraryItems() -> (items: [PhotoSyncCore.LibraryItem], paired: Set<String>) {
         var items: [PhotoSyncCore.LibraryItem] = []
+        var paired = Set<String>()
         for asset in libraryAssets() {
             let resources = PHAssetResource.assetResources(for: asset)
             let name = resources.first { $0.type == .photo || $0.type == .fullSizePhoto }?.originalFilename
                 ?? resources.first?.originalFilename ?? "item"
             let kind: ItemKind = asset.mediaType == .video ? .video
                 : (asset.mediaSubtypes.contains(.photoLive) ? .livePhoto : .photo)
+            if resources.contains(where: { $0.type == .alternatePhoto }) { paired.insert(asset.localIdentifier) }
             items.append(PhotoSyncCore.LibraryItem(assetId: asset.localIdentifier, fileName: name, kind: kind,
                                      onPhone: true, hidden: asset.isHidden, date: asset.creationDate))
         }
-        return items
+        return (items, paired)
     }
 
     /// Exports one original to the work folder. Checks the phone's free space first; an original that cannot be
