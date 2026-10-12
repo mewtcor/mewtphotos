@@ -156,6 +156,11 @@ export interface PairingInfo {
   qrSvg: string | null;
 }
 
+/** How many of this device's photos the PC holds (GET /assets/count). */
+export interface AssetCount {
+  stored: number;
+}
+
 export interface ClientStatus {
   deviceName: string;
   serverName: string;

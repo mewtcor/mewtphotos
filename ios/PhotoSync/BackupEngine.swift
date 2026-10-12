@@ -12,6 +12,8 @@ import PhotoSyncCore
 final class BackupModel {
     private(set) var record: RunRecord?
     private(set) var stopMessage: String?
+    /// How many of this iPhone's photos the PC holds; nil until it has been asked.
+    private(set) var pcCount: Int?
     private(set) var running = false
     private var stopRequested = false
     private let store: RunStore
@@ -76,6 +78,15 @@ final class BackupModel {
         }
         record = result.record
         stopMessage = result.stopMessage
+        await refreshPCCount(pairing: pairing)
+    }
+
+    /// Asks the PC how many of this iPhone's photos it holds. A failed check leaves the last answer in place.
+    func refreshPCCount(pairing: AppModel) async {
+        guard let connection = await pairing.connection() else { return }
+        if let count = try? await connection.client.storedAssetCount(key: connection.key) {
+            pcCount = count
+        }
     }
 
     private func stopFlag() -> Bool { stopRequested }
@@ -269,6 +280,14 @@ struct BackupView: View {
                     Text(Self.totalsText(record.totals))
                     Text(record.status == .finished ? "Finished." : "Not finished. Back up now continues it.")
                         .font(.footnote)
+                    if let pcCount = model.pcCount {
+                        Text("The PC holds \(pcCount) of this iPhone's photos.")
+                        // The PC should hold at least everything this run counted as backed up.
+                        if pcCount < record.totals.verified + record.totals.alreadyOnPC {
+                            Text("The PC has fewer of these photos than this run counted. Check the PC's backup folder, then run again.")
+                                .foregroundStyle(.red)
+                        }
+                    }
                 }
                 let problems = record.entries.filter {
                     if case .failed = $0.outcome { return true }
@@ -295,6 +314,7 @@ struct BackupView: View {
             }
         }
         .navigationTitle("Back up photos")
+        .task { await model.refreshPCCount(pairing: pairing) }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the app pauses the run after the item in progress; the record keeps the rest.
             if phase != .active { model.stop() }

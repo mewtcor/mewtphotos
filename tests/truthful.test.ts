@@ -58,3 +58,24 @@ describe('resend in one session', () => {
     expect(all(s.db, 'SELECT id FROM uploads WHERE session_id = ?', session)).toHaveLength(1);
   });
 });
+
+describe('PC count for this iPhone', () => {
+  it('counts assets only while their stored copy is on disk, once per asset', async () => {
+    const s = await server();
+    const session = await s.newSession(3);
+    const a = Buffer.from('first photo for the count');
+    const b = Buffer.from('second photo for the count');
+    const doneA = await s.upload(session, 'IMG_20.JPG', a);
+    const doneB = await s.upload(session, 'IMG_21.JPG', b);
+    // The upload helper sends no asset identifier, so the test records one on each row directly.
+    s.db.exec(`UPDATE uploads SET asset_id = 'asset-a' WHERE id = '${doneA.body.uploadId}'`);
+    s.db.exec(`UPDATE uploads SET asset_id = 'asset-a' WHERE id = '${doneB.body.uploadId}'`);
+    const count = async () => (await s.phone({ method: 'GET', url: `${API}/assets/count` })).json();
+
+    expect(await count()).toEqual({ stored: 1 });
+    await rm(doneA.body.path);
+    expect(await count()).toEqual({ stored: 1 });
+    await rm(doneB.body.path);
+    expect(await count()).toEqual({ stored: 0 });
+  });
+});

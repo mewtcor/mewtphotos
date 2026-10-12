@@ -55,3 +55,14 @@ struct KnownAssetsTests {
         #expect(await fake.requests().isEmpty)
     }
 }
+
+@Suite("PC count for this iPhone")
+struct StoredCountTests {
+    @Test("reads the count the PC reports")
+    func reads() async throws {
+        let fake = FakeTransport([.json(#"{"stored":117}"#)])
+        let client = ServerClient(base: URL(string: "http://127.0.0.1:8787")!, transport: fake)
+        #expect(try await client.storedAssetCount(key: DeviceKey("tok")) == 117)
+        #expect(await fake.requests().first?.url.path == "/api/v1/assets/count")
+    }
+}
