@@ -20,11 +20,11 @@ Uploads used the backup's own routes (`/api/v1/sessions`, `/uploads`, `PATCH` ch
 | IMG_8069.MOV | 27.1 MB | 20.97 MiB/s (1.3 s) | 8 MiB | verified | yes |
 | IMG_8071.MOV | 249.2 MB | 24.44 MiB/s (10.2 s) | 8 MiB | verified | yes |
 
-**Screen lock:** failed. Starting an upload on IMG_8071.MOV and locking the phone for about 30 seconds ended with "Upload failed" on the phone. The PC stored nothing from that attempt. The likely cause is that iOS suspends ordinary network transfers when the screen locks. Resuming a partial upload after a lock is not confirmed.
+**Screen lock, foreground upload (build 10):** failed. An ordinary upload stops when the screen locks. The PC stored nothing from that attempt.
 
-**Retry after the lock:** "Server status: duplicate". The PC already held IMG_8071.MOV from the successful run above. A duplicate is not a new backup, so this result doesn't test resuming.
+**Screen lock, background upload (build 12):** passed. IMG_8075.MOV (910,663,702 bytes) was sent with the phone locked, at 22.58 MiB/s (38.5 s). The PC stored and verified it. The phone's final "finish" reply was lost, so the app showed "not confirmed" until the next tap. Build 13 fixes this: the hash is sent when the upload opens (a file the PC already has is recognised without resending), and an unfinished upload is retried when the app opens.
 
-Still open: whether an upload resumes after a lock (it would need a background transfer, which is a Phase 3 design question).
+The background transfer of an 80 MB or larger video works with the screen locked, so the Phase 3 design can rely on it.
 
 ## Not tested
 
