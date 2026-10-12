@@ -66,10 +66,18 @@ final class DiagnosticsModel {
                 failed.append(resource.originalFilename)
             }
         }
-        try? ExportManifest.text(hashes).write(to: folder.appendingPathComponent("manifest.txt"),
-                                                atomically: true, encoding: .utf8)
+        // Read the manifest back so the screen shows what landed on disk, not what was meant to.
+        let manifestURL = folder.appendingPathComponent("manifest.txt")
+        var manifestNote: String
+        do {
+            try ExportManifest.text(hashes).write(to: manifestURL, atomically: true, encoding: .utf8)
+            let size = try FileManager.default.attributesOfItem(atPath: manifestURL.path)[.size] as? Int64 ?? -1
+            manifestNote = " Manifest is \(size) bytes."
+        } catch {
+            manifestNote = " Manifest write failed: \(error.localizedDescription)."
+        }
         let saved = "Exported \(hashes.count) part(s) to Files > On My iPhone > PhotoSync > PhotoSyncExport > \(folderName)."
-        exportText = failed.isEmpty ? saved : saved + " Could not read: " + failed.joined(separator: ", ") + "."
+        exportText = (failed.isEmpty ? saved : saved + " Could not read: " + failed.joined(separator: ", ") + ".") + manifestNote
     }
 
     private func photoAccess() async -> Bool {
