@@ -149,7 +149,7 @@ final class BackupModel {
                 ?? resources.first?.originalFilename ?? "item"
             let kind: ItemKind = asset.mediaType == .video ? .video
                 : (asset.mediaSubtypes.contains(.photoLive) ? .livePhoto : .photo)
-            if resources.contains(where: { $0.type == .alternatePhoto }) { paired.insert(asset.localIdentifier) }
+            if resources.contains(where: { $0.type == .alternatePhoto || $0.type == .pairedVideo }) { paired.insert(asset.localIdentifier) }
             items.append(PhotoSyncCore.LibraryItem(assetId: asset.localIdentifier, fileName: name, kind: kind,
                                      onPhone: true, hidden: asset.isHidden, date: asset.creationDate))
         }
@@ -171,8 +171,13 @@ final class BackupModel {
         guard let resource = resources.first(where: { $0.type == .photo || $0.type == .fullSizePhoto }) else {
             throw ItemError.unavailable(BackupPlanner.unsupportedReason)
         }
-        // A RAW photo's JPEG or HEIC is the other original of the same photo; it is sent beside the RAW.
-        let companionResource = resources.first { $0.type == .alternatePhoto && $0.originalFilename != resource.originalFilename }
+        // The other original of the same photo: a RAW's JPEG or HEIC (alternatePhoto), or a Live Photo's video
+        // (pairedVideo). Only one is supported; a photo with both is not complete, so it is not sent.
+        let candidates = resources.filter {
+            ($0.type == .alternatePhoto || $0.type == .pairedVideo) && $0.originalFilename != resource.originalFilename
+        }
+        guard candidates.count <= 1 else { throw ItemError.unavailable(BackupPlanner.unsupportedReason) }
+        let companionResource = candidates.first
         let expected = [resource, companionResource].compactMap { $0 }.reduce(Int64(0)) {
             $0 + (($1.value(forKey: "fileSize") as? Int64) ?? 0)
         }

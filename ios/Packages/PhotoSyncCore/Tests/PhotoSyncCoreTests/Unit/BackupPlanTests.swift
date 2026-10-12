@@ -21,12 +21,18 @@ struct BackupPlannerTests {
         #expect(plan.map { $0.decision } == [.alreadyOnPC, .alreadyOnPC])
     }
 
-    @Test("videos, Live Photos and iCloud-only items are never sent")
+    @Test("videos and iCloud-only items are never sent")
     func unsupportedNeverSent() {
-        let plan = BackupPlanner.plan([item("V", .video), item("L", .livePhoto), item("C", onPhone: false)], alreadyOnPC: [])
+        let plan = BackupPlanner.plan([item("V", .video), item("C", onPhone: false)], alreadyOnPC: [])
         for entry in plan {
             #expect(entry.decision == .unavailable(BackupPlanner.unsupportedReason))
         }
+    }
+
+    @Test("a Live Photo is sent; its video part is sent beside the still")
+    func livePhotoSent() {
+        let plan = BackupPlanner.plan([item("L", .livePhoto)], alreadyOnPC: [])
+        #expect(plan.first?.decision == .send)
     }
 
     @Test("hidden photos and burst frames are planned like any other photo")
