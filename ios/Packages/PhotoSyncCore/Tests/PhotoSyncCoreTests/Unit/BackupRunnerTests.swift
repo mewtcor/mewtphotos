@@ -214,3 +214,14 @@ struct RetryAndSpaceTests {
         #expect(!PhoneSpace.hasRoom(free: 1_500_000_000, needed: 1_000_000_000))
     }
 }
+
+@Suite("Items with several parts")
+struct ItemPartsCombineTests {
+    @Test("an item is backed up only when every part is verified or already held")
+    func everyPart() {
+        #expect(ItemParts.combine([.verified, .verified]) == .verified)
+        #expect(ItemParts.combine([.alreadyOnPC, .verified]) == .verified)
+        #expect(ItemParts.combine([.alreadyOnPC, .alreadyOnPC]) == .alreadyOnPC)
+        #expect(ItemParts.combine([.verified]) == .verified)
+    }
+}

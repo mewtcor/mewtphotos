@@ -72,7 +72,10 @@ final class BackupModel {
         let runner = BackupRunner(
             prepare: { entry in try await BackupModel.prepare(entry, work: await self.workFolder()) },
             send: { item in try await BackupModel.send(item, connection: connection, work: await self.workFolder()) },
-            discard: { item in try? FileManager.default.removeItem(at: item.fileURL) },
+            discard: { item in
+                try? FileManager.default.removeItem(at: item.fileURL)
+                for part in item.companions { try? FileManager.default.removeItem(at: part.fileURL) }
+            },
             stopRequested: { await self.stopFlag() },
             pause: { seconds in try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000)) })
         let result = await runner.run(opened, now: Date()) { saved in
@@ -158,13 +161,35 @@ final class BackupModel {
         guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [entry.assetId], options: fetchOptions).firstObject else {
             throw ItemError.unavailable("It is no longer in the library.")
         }
-        guard let resource = PHAssetResource.assetResources(for: asset)
-            .first(where: { $0.type == .photo || $0.type == .fullSizePhoto }) else {
+        let resources = PHAssetResource.assetResources(for: asset)
+        guard let resource = resources.first(where: { $0.type == .photo || $0.type == .fullSizePhoto }) else {
             throw ItemError.unavailable(BackupPlanner.unsupportedReason)
         }
-        let expected = (resource.value(forKey: "fileSize") as? Int64) ?? 0
+        // A RAW photo's JPEG or HEIC is the other original of the same photo; it is sent beside the RAW.
+        let companionResource = resources.first { $0.type == .alternatePhoto && $0.originalFilename != resource.originalFilename }
+        let expected = [resource, companionResource].compactMap { $0 }.reduce(Int64(0)) {
+            $0 + (($1.value(forKey: "fileSize") as? Int64) ?? 0)
+        }
         guard PhoneSpace.hasRoom(free: freeBytes(), needed: expected) else { throw ItemError.phoneFull }
 
+        let main = try await export(resource, work: work)
+        var companions: [PreparedPart] = []
+        if let companionResource {
+            do {
+                companions.append(try await export(companionResource, work: work))
+            } catch {
+                // Without the companion the photo is not complete, so the main copy is not kept either.
+                try? FileManager.default.removeItem(at: main.fileURL)
+                throw error
+            }
+        }
+        return PreparedItem(entry: entry, fileURL: main.fileURL, bytes: main.bytes, sha256: main.sha256,
+                            hidden: asset.isHidden, companions: companions)
+    }
+
+    /// Writes one original to the work folder and hashes it. Photos refuses to overwrite a file, so the name is
+    /// always new. Network access is off: an original that exists only in iCloud cannot be read.
+    private static func export(_ resource: PHAssetResource, work: URL) async throws -> PreparedPart {
         let url = work.appendingPathComponent(UUID().uuidString + ".part")
         let options = PHAssetResourceRequestOptions()
         options.isNetworkAccessAllowed = false
@@ -172,13 +197,12 @@ final class BackupModel {
             try await PHAssetResourceManager.default().writeData(for: resource, toFile: url, options: options)
         } catch {
             try? FileManager.default.removeItem(at: url)
-            // With network access off, an original that exists only in iCloud cannot be read.
             throw ItemError.unavailable(BackupPlanner.unsupportedReason)
         }
         do {
             let bytes = (try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
             let hash = try sha256(of: url)
-            return PreparedItem(entry: entry, fileURL: url, bytes: bytes, sha256: hash, hidden: asset.isHidden)
+            return PreparedPart(fileName: resource.originalFilename, fileURL: url, bytes: bytes, sha256: hash)
         } catch {
             try? FileManager.default.removeItem(at: url)
             throw ItemError.failed("Could not read the copy on this iPhone.")
@@ -187,23 +211,41 @@ final class BackupModel {
 
     /// Opens the upload on the PC, sends the bytes in the background, and finishes it. Only `verified` or
     /// `duplicate` from the PC counts as backed up.
+    /// Sends every part of the photo. Companions go first, without the asset identifier, and the main file last with it,
+    /// so the PC counts the photo as held only after every part is verified.
     static func send(_ item: PreparedItem, connection: PairedConnection, work: URL) async throws -> SendResult {
-        let name = item.entry.fileName
+        let pairId: String? = item.companions.isEmpty ? nil : item.entry.assetId
+        var results: [SendResult] = []
+        for companion in item.companions {
+            results.append(try await sendPart(companion, item: item, assetId: nil, pairId: pairId,
+                                              pairName: item.entry.fileName, connection: connection))
+        }
+        let main = PreparedPart(fileName: item.entry.fileName, fileURL: item.fileURL, bytes: item.bytes, sha256: item.sha256)
+        results.append(try await sendPart(main, item: item, assetId: item.entry.assetId, pairId: pairId,
+                                          pairName: item.companions.first?.fileName, connection: connection))
+        return ItemParts.combine(results)
+    }
+
+    /// Opens the upload for one file, sends the bytes in the background, and finishes it.
+    private static func sendPart(_ part: PreparedPart, item: PreparedItem, assetId: String?, pairId: String?,
+                                 pairName: String?, connection: PairedConnection) async throws -> SendResult {
+        let name = part.fileName
         let begun: BegunUpload
         do {
             begun = try await connection.client.beginUpload(
-                key: connection.key, filename: name, mimeType: mimeType(for: name), size: item.bytes,
-                sha256: item.sha256, assetId: item.entry.assetId, hidden: item.hidden,
-                lastModified: item.entry.date.map { Int64($0.timeIntervalSince1970 * 1000) })
+                key: connection.key, filename: name, mimeType: mimeType(for: name), size: part.bytes,
+                sha256: part.sha256, assetId: assetId, hidden: item.hidden,
+                lastModified: item.entry.date.map { Int64($0.timeIntervalSince1970 * 1000) },
+                pairId: pairId, pairName: pairName)
         } catch {
             throw mapped(error)
         }
         if begun.alreadyStored { return .alreadyOnPC }
 
-        if begun.offset < item.bytes {
-            let source = begun.offset == 0 ? item.fileURL : try BackgroundUploader.tail(of: item.fileURL, from: begun.offset)
+        if begun.offset < part.bytes {
+            let source = begun.offset == 0 ? part.fileURL : try BackgroundUploader.tail(of: part.fileURL, from: begun.offset)
             defer {
-                if source != item.fileURL { try? FileManager.default.removeItem(at: source) }
+                if source != part.fileURL { try? FileManager.default.removeItem(at: source) }
             }
             var request = URLRequest(url: connection.base.appendingPathComponent("api/v1/uploads/\(begun.uploadId)"))
             request.httpMethod = "PATCH"
@@ -214,7 +256,7 @@ final class BackupModel {
         }
 
         do {
-            let finished = try await connection.client.finishUpload(key: connection.key, uploadId: begun.uploadId, sha256: item.sha256)
+            let finished = try await connection.client.finishUpload(key: connection.key, uploadId: begun.uploadId, sha256: part.sha256)
             switch finished.status {
             case "verified": return .verified
             case "duplicate": return .alreadyOnPC

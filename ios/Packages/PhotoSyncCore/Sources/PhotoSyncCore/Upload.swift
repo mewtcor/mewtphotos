@@ -49,6 +49,10 @@ struct UploadCreateBody: Encodable {
     let hidden: Bool
     /// Modification time in milliseconds, used by the PC only when there is no capture date.
     let lastModified: Int64?
+    /// The parts of one photo share this identifier; the PC stores them under one base name.
+    let pairId: String?
+    /// File name of the other part of the photo, so the PC keeps the two names matching.
+    let pairName: String?
 }
 
 /// The PC answers an upload request either with an open upload (`status` receiving, `offset`) or, when it
@@ -87,7 +91,8 @@ extension ServerClient {
     /// Opens a session and an upload on the PC, sending the file's hash so a file the PC already has is
     /// recognised before any bytes move. Otherwise the offset says where to start sending.
     public func beginUpload(key: DeviceKey, filename: String, mimeType: String, size: Int64, sha256: String,
-                            assetId: String? = nil, hidden: Bool = false, lastModified: Int64? = nil) async throws -> BegunUpload {
+                            assetId: String? = nil, hidden: Bool = false, lastModified: Int64? = nil,
+                            pairId: String? = nil, pairName: String? = nil) async throws -> BegunUpload {
         guard size > 0 else { throw ServerClientError.invalidInput("The file is empty.") }
         let json = ["Authorization": "Bearer \(key.revealForAuthorization())", "Content-Type": "application/json"]
         let session = try decode(SessionReply.self, from: try await perform(
@@ -97,7 +102,8 @@ extension ServerClient {
             "POST", "api/v1/uploads", headers: json,
             body: try JSONEncoder().encode(UploadCreateBody(sessionId: session.id, filename: filename, size: size,
                                                             mimeType: mimeType, sha256: sha256, assetId: assetId,
-                                                            hidden: hidden, lastModified: lastModified))))
+                                                            hidden: hidden, lastModified: lastModified,
+                                                            pairId: pairId, pairName: pairName))))
         let stored = upload.status == "verified" || upload.status == "duplicate"
         return BegunUpload(uploadId: upload.uploadId, offset: upload.offset ?? size, alreadyStored: stored)
     }

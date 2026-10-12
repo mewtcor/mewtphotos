@@ -27,13 +27,40 @@ public struct PreparedItem: Sendable {
     public let sha256: String
     /// The item is hidden on the phone; sent so the PC stores it under Hidden.
     public let hidden: Bool
+    /// Other original files of the same photo (a RAW's JPEG or HEIC). Sent with the main file; the item counts as
+    /// backed up only when every part is.
+    public let companions: [PreparedPart]
 
-    public init(entry: RunEntry, fileURL: URL, bytes: Int64, sha256: String, hidden: Bool = false) {
+    public init(entry: RunEntry, fileURL: URL, bytes: Int64, sha256: String, hidden: Bool = false,
+                companions: [PreparedPart] = []) {
         self.entry = entry
         self.fileURL = fileURL
         self.bytes = bytes
         self.sha256 = sha256
         self.hidden = hidden
+        self.companions = companions
+    }
+}
+
+/// One original file of a photo, exported to a temporary file and hashed.
+public struct PreparedPart: Sendable {
+    public let fileName: String
+    public let fileURL: URL
+    public let bytes: Int64
+    public let sha256: String
+
+    public init(fileName: String, fileURL: URL, bytes: Int64, sha256: String) {
+        self.fileName = fileName
+        self.fileURL = fileURL
+        self.bytes = bytes
+        self.sha256 = sha256
+    }
+}
+
+/// The rule for an item with several parts: backed up only when every part is verified or already on the PC.
+public enum ItemParts {
+    public static func combine(_ results: [SendResult]) -> SendResult {
+        results.allSatisfy { $0 == .alreadyOnPC } ? .alreadyOnPC : .verified
     }
 }
 
