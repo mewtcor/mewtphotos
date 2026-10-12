@@ -104,28 +104,38 @@ final class BackupModel {
 
     private func workFolder() -> URL { work }
 
-    /// Counts the items the run's fetch returns and how many are hidden. Reads no files.
-    static func countLibrary() -> (total: Int, hidden: Int) {
+    /// Every asset in the library: the main fetch, plus the Hidden album. The main fetch alone returned no
+    /// hidden items on the phone, so the Hidden album is read directly and anything new from it is added.
+    static func libraryAssets() -> [PHAsset] {
         let options = PHFetchOptions()
         options.includeHiddenAssets = true
         options.includeAllBurstAssets = true
-        let result = PHAsset.fetchAssets(with: options)
-        var hidden = 0
-        result.enumerateObjects { asset, _, _ in
-            if asset.isHidden { hidden += 1 }
+        var assets: [PHAsset] = []
+        var seen = Set<String>()
+        func add(_ result: PHFetchResult<PHAsset>) {
+            result.enumerateObjects { asset, _, _ in
+                if seen.insert(asset.localIdentifier).inserted { assets.append(asset) }
+            }
         }
-        return (result.count, hidden)
+        add(PHAsset.fetchAssets(with: options))
+        PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumAllHidden, options: nil)
+            .enumerateObjects { album, _, _ in
+                add(PHAsset.fetchAssets(in: album, options: options))
+            }
+        return assets.sorted { ($0.creationDate ?? .distantPast) > ($1.creationDate ?? .distantPast) }
+    }
+
+    /// Counts the items the run sees and how many are hidden. Reads no files.
+    static func countLibrary() -> (total: Int, hidden: Int) {
+        let assets = libraryAssets()
+        return (assets.count, assets.filter(\.isHidden).count)
     }
 
     /// Every item in the library, newest first, with what the planner needs. Hidden items and every burst frame
-    /// are included; items outside the library fetch are not.
+    /// are included.
     static func libraryItems() -> [PhotoSyncCore.LibraryItem] {
-        let options = PHFetchOptions()
-        options.includeHiddenAssets = true
-        options.includeAllBurstAssets = true
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         var items: [PhotoSyncCore.LibraryItem] = []
-        PHAsset.fetchAssets(with: options).enumerateObjects { asset, _, _ in
+        for asset in libraryAssets() {
             let resources = PHAssetResource.assetResources(for: asset)
             let name = resources.first { $0.type == .photo || $0.type == .fullSizePhoto }?.originalFilename
                 ?? resources.first?.originalFilename ?? "item"
