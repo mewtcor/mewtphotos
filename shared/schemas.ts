@@ -161,6 +161,11 @@ export interface AssetCount {
   stored: number;
 }
 
+/** Every asset identifier the PC holds for this iPhone (the same rule as AssetCount). */
+export interface AssetHeld {
+  assetIds: string[];
+}
+
 export interface ClientStatus {
   deviceName: string;
   serverName: string;

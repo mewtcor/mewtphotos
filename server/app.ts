@@ -14,7 +14,7 @@ import QRCode from 'qrcode';
 import { z } from 'zod';
 import {
   API, AssetCheck, CHUNK_SIZE, PairRequest, SessionComplete, SessionCreate, SettingsUpdate, UploadCreate, UploadFinish,
-  type AssetCount, type ClientStatus, type Overview, type PairingInfo, type Settings, type UploadState, type VerifyReport,
+  type AssetCount, type AssetHeld, type ClientStatus, type Overview, type PairingInfo, type Settings, type UploadState, type VerifyReport,
 } from '../shared/schemas.ts';
 import { loadSettings, saveSettings, validateDestination } from './config.ts';
 import { all, get, run, type Db, type DeviceRow } from './db.ts';
@@ -344,21 +344,32 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
     return { known };
   });
 
-  // How many of this iPhone's photos the PC holds, so the app can show its own total next to the PC's (REP-02).
-  // Same rule as /assets/check: an asset counts only while a stored copy is still on disk at the recorded size.
-  app.get(`${API}/assets/count`, async (req): Promise<AssetCount> => {
-    const device = requireDevice(req);
+  // The asset identifiers this iPhone's photos the PC holds. Same rule as /assets/check: an asset counts only
+  // while a stored copy is still on disk at the recorded size.
+  async function heldAssetIds(deviceId: string): Promise<Set<string>> {
     const rows = all<{ asset_id: string; sha256: string }>(
       db,
       `SELECT DISTINCT u.asset_id, f.sha256 FROM uploads u JOIN files f ON f.id = u.file_id
        WHERE u.device_id = ? AND u.asset_id IS NOT NULL AND u.status IN ('verified', 'duplicate')`,
-      device.id,
+      deviceId,
     );
     const held = new Set<string>();
     for (const row of rows) {
       if (!held.has(row.asset_id) && (await storedOnDisk(row.sha256))) held.add(row.asset_id);
     }
-    return { stored: held.size };
+    return held;
+  }
+
+  // How many of this iPhone's photos the PC holds, so the app can show its own total next to the PC's (REP-02).
+  app.get(`${API}/assets/count`, async (req): Promise<AssetCount> => {
+    const device = requireDevice(req);
+    return { stored: (await heldAssetIds(device.id)).size };
+  });
+
+  // Every held identifier, so the app can compare its library with the PC and list what is missing (coverage).
+  app.get(`${API}/assets/held`, async (req): Promise<AssetHeld> => {
+    const device = requireDevice(req);
+    return { assetIds: [...(await heldAssetIds(device.id))] };
   });
 
   // ---- admin API (this computer only) ------------------------------------

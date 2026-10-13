@@ -70,10 +70,20 @@ struct AssetCountReply: Decodable {
     let stored: Int
 }
 
+struct AssetHeldReply: Decodable {
+    let assetIds: [String]
+}
+
 extension ServerClient {
     /// How many of this iPhone's photos the PC holds (REP-02), so the app can compare it with its own totals.
     public func storedAssetCount(key: DeviceKey) async throws -> Int {
         try decode(AssetCountReply.self, from: try await perform(
             "GET", "api/v1/assets/count", headers: ["Authorization": "Bearer \(key.revealForAuthorization())"])).stored
+    }
+
+    /// Every asset identifier the PC holds for this iPhone, for the coverage report (milestone 7).
+    public func heldAssetIds(key: DeviceKey) async throws -> Set<String> {
+        Set(try decode(AssetHeldReply.self, from: try await perform(
+            "GET", "api/v1/assets/held", headers: ["Authorization": "Bearer \(key.revealForAuthorization())"])).assetIds)
     }
 }

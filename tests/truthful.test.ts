@@ -78,4 +78,18 @@ describe('PC count for this iPhone', () => {
     await rm(doneB.body.path);
     expect(await count()).toEqual({ stored: 0 });
   });
+
+  it('lists the held assets, with the same rule as the count', async () => {
+    const s = await server();
+    const session = await s.newSession(2);
+    const doneA = await s.upload(session, 'IMG_30.JPG', Buffer.from('held asset one'));
+    const doneB = await s.upload(session, 'IMG_31.JPG', Buffer.from('held asset two'));
+    s.db.exec(`UPDATE uploads SET asset_id = 'held-a' WHERE id = '${doneA.body.uploadId}'`);
+    s.db.exec(`UPDATE uploads SET asset_id = 'held-b' WHERE id = '${doneB.body.uploadId}'`);
+    const held = async () => (await s.phone({ method: 'GET', url: `${API}/assets/held` })).json();
+
+    expect((await held()).assetIds.sort()).toEqual(['held-a', 'held-b']);
+    await rm(doneB.body.path);
+    expect(await held()).toEqual({ assetIds: ['held-a'] });
+  });
 });

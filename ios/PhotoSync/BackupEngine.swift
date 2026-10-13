@@ -17,6 +17,9 @@ final class BackupModel {
     /// How many of this iPhone's photos the PC holds; nil until it has been asked.
     private(set) var pcCount: Int?
     private(set) var pcCountFailed = false
+    /// Which library items the PC holds, and what it is missing; nil until it has been checked (milestone 7).
+    private(set) var coverage: Coverage?
+    private(set) var coverageFailed = false
     private(set) var running = false
     private var stopRequested = false
     private let store: RunStore
@@ -87,6 +90,7 @@ final class BackupModel {
         record = result.record
         stopMessage = result.stopMessage
         await refreshPCCount(pairing: pairing)
+        await refreshCoverage(pairing: pairing)
     }
 
     func refreshLibraryCounts() {
@@ -117,6 +121,19 @@ final class BackupModel {
             pcCountFailed = false
         } catch {
             pcCountFailed = true
+        }
+    }
+
+    /// Compares the library with the PC's list of held photos. A failed check keeps the last answer and sets
+    /// `coverageFailed`. Photos the PC has that the library no longer has are kept on purpose and only counted.
+    func refreshCoverage(pairing: AppModel) async {
+        guard let connection = await pairing.connection() else { return }
+        let (items, _) = Self.libraryItems()
+        do {
+            coverage = Coverage.compare(library: items, held: try await connection.client.heldAssetIds(key: connection.key))
+            coverageFailed = false
+        } catch {
+            coverageFailed = true
         }
     }
 
@@ -396,6 +413,30 @@ struct BackupView: View {
                         .font(.footnote)
                 }
             }
+            if let coverage = model.coverage {
+                Section("Coverage") {
+                    if coverage.isVerified {
+                        Text("Coverage verified: every photo in the library is on the PC.")
+                    } else {
+                        Text("\(coverage.missing.count) photos in the library are not on the PC.")
+                        ForEach(Array(coverage.missing.prefix(20).enumerated()), id: \.offset) { _, item in
+                            Text(item.fileName).font(.footnote)
+                        }
+                        if coverage.missing.count > 20 {
+                            Text("…and \(coverage.missing.count - 20) more. Back up now sends what it can.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Text("The PC holds \(coverage.held) library photos. On the PC but no longer on this iPhone: \(coverage.onPCOnly). Kept on purpose.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if model.coverageFailed {
+                        Text("Could not check coverage. Make sure the PC is on and reachable, then reopen this screen.")
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
             if let record = model.record {
                 Section("Last run") {
                     Text(Self.totalsText(record.totals))
@@ -472,6 +513,7 @@ struct BackupView: View {
         .task {
             model.refreshLibraryCounts()
             await model.refreshPCCount(pairing: pairing)
+            await model.refreshCoverage(pairing: pairing)
         }
         .onChange(of: scenePhase) { _, phase in
             // Going to the background pauses the run after the item in progress; the record keeps the rest.
