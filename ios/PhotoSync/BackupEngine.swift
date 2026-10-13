@@ -474,8 +474,10 @@ struct BackupView: View {
             await model.refreshPCCount(pairing: pairing)
         }
         .onChange(of: scenePhase) { _, phase in
-            // Leaving the app pauses the run after the item in progress; the record keeps the rest.
-            if phase != .active { model.stop() }
+            // Going to the background pauses the run after the item in progress; the record keeps the rest.
+            // Not .inactive: pulling down Control Center or the notification shade also reports inactive,
+            // and that stopped the run when the Wi-Fi was toggled from there.
+            if phase == .background { model.stop() }
         }
     }
 
