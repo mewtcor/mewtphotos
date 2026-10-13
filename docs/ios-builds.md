@@ -1,0 +1,23 @@
+# iOS build log
+
+One row per iOS build. The build number is the `ios-build` workflow run number, and the install file is the `PhotoSync-ipa`
+artifact of that run (also copied to iCloud Drive as `PhotoSync\PhotoSync.ipa`). The phase gates in `.planning/phases/`
+record what passed on the phone; this log only says which build contains which change.
+
+| Build | Commit | Date | What it contains | Device result |
+|------:|--------|------|------------------|---------------|
+| 21 | `ee1936a` | 2026-10-12 | Earlier Phase 5 work | Not recorded here |
+| 22 | `554e383` | 2026-10-12 | Earlier Phase 5 work | Not recorded here |
+| 23 | `b49912e` | 2026-10-12 | Earlier Phase 5 work | Not recorded here |
+| 24 | `8ee8573` | 2026-10-12 | Burst photo fix | **Failed to compile** (a name clash). Fixed in 25 |
+| 25 | `7662c95` | 2026-10-12 | Burst photo fix, compiling | Pass: all 6 burst frames arrived (IMG_8100 to IMG_8105) |
+| 26 | `ab799d2` | 2026-10-12 | RAW companion: `PhotoParts` name (06-01) | Not tested on device |
+| 27 | `32cedfa` | 2026-10-12 | RAW not skipped as held from its first part; its JPEG or HEIC is sent (06-01 fix) | Not tested on device |
+| 28 | `83eeaad` | 2026-10-12 | Live Photo video sent beside its still (06-02) | Live Photo arrives as both files (IMG_8068, IMG_7869) |
+| 29 | `71bf953` | 2026-10-12 | Videos sent as originals; resume from the PC's offset (06-03) | Videos verified (IMG_7545, IMG_2280, IMG_5378) |
+| 30 | `4130bee` | 2026-10-12 | Speed-test upload sends the photo's date, so a resume can match | Resume still failed (IMG_8114 sent in full). Fixed in 31 |
+| 31 | `8d15787` | 2026-10-12 | Re-sent video waits for the stalled attempt, then resumes | Pass: IMG_8116 resumed from the PC's offset (313 MB already on the PC) |
+| 32 | `a4405a4` | 2026-10-12 | Retry failed items: **Retry N failed** and single **Retry** (06-04) | Retry not yet tested on device |
+| 33 | `9b5adac` | 2026-10-13 | A run stops only in the background, not for Control Center | Pass: Control Center no longer stops the run |
+| 34 | `728ffb1` | 2026-10-13 | Coverage section: what the PC is missing (Phase 7) | Pass: "Coverage verified" on 4,083 of 4,083 |
+| 35 | `c272a40` | 2026-10-13 | Continuing an unfinished run picks up photos taken since it started | Not yet tested on device |
