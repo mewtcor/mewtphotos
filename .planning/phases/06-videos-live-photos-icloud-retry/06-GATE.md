@@ -52,6 +52,11 @@ Unit tests cover the run record (`retryFailed`, `retry(at:)`). The screen button
 - iCloud-only items: reported as unavailable, not downloaded from iCloud (CLOUD-01..03). Needs its own phase or plan.
 - Slow-motion, HDR / Dolby Vision, Cinematic and ProRes clips arriving as originals (criterion 1, part): not checked.
 - Edited versions of photos are not backed up; only originals are sent. This is on the Back up photos screen.
+- **Switching to another app stops the run** (by design, from the Phase 5 background rule). Pulling down Control Center
+  no longer stops it (fixed in build 33). Reopen the app and tap Back up now to continue.
+- **No "paused" message and no automatic resume.** ROADMAP Phase 5 criterion 4 and UP-04 ask for a "paused" message and
+  for the run to continue when conditions return. The app shows only "Not finished" and needs a tap to continue. Recorded
+  as a v1 gap, not a pass.
 
 ## Decision
 
