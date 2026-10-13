@@ -1,7 +1,7 @@
 # Phase 6 gate: videos, Live Photos, iCloud and retry
 
-Status: **open** on 2026-10-13. Retry (REP-04) is built but not yet checked on a device, and the RAW and Live Photo
-checks are not yet recorded here. Phase 6 does not close until the items under "Still to check" pass.
+Status: **closed (go)** on 2026-10-13, with the gaps below recorded. Retry (REP-04) is built and unit-tested but not yet
+checked on a device; it is recorded as untested, not as a pass. Live Photo passed. RAW pairing is removed from this gate.
 
 Parked by owner decision on 2026-10-13: iCloud-only items (CLOUD-01..03), slow-motion, HDR / Dolby Vision, Cinematic
 and ProRes clips (criterion 1). They are out of scope for closing this gate and are recorded below as parked, not as passes.
@@ -39,10 +39,10 @@ Built, not yet on a device. A failed item can be retried in two ways:
 A retried item counts as backed up only when the PC returns `verified` or `duplicate`, the same rule as the normal run.
 Unit tests cover the run record (`retryFailed`, `retry(at:)`). The screen buttons and their device behaviour are not yet checked.
 
-## Still to check
+## Still untested (carried past the gate)
 
 1. Retry: force a failure (for example, turn Wi-Fi off during a run, or pick an item that fails), then use **Retry N failed**
-   and a single **Retry**. Totals must still add up and match the PC.
+   and a single **Retry**. Totals must still add up and match the PC. Check on the next run that has a real failure.
 ## Parked (not checked, recorded as known gaps)
 
 - iCloud-only items: reported as unavailable, not downloaded from iCloud (CLOUD-01..03). Needs its own phase or plan.
@@ -56,5 +56,6 @@ Unit tests cover the run record (`retryFailed`, `retry(at:)`). The screen button
 
 ## Decision
 
-Open. Close the gate when the three "Still to check" items pass on a device. Then decide whether to start a new phase for
-the parked iCloud work.
+Closed (go) on 2026-10-13, owner decision. Open items carried forward: retry on a device (untested), the parked iCloud and
+slow-motion, HDR, ProRes checks, and the v1 gaps above (switching apps stops the run; no "paused" message or automatic
+resume). Decide whether to start a new phase for the parked iCloud work.
