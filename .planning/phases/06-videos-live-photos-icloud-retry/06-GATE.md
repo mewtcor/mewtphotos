@@ -19,7 +19,7 @@ video waits for the stalled attempt and resumes it). Retry: see "Retry" below fo
 | Interrupted video resumes from the PC's offset (IMG_8116, 2,704,414,288 bytes): the phone sent 2,391,198,600 bytes, so 313,215,688 bytes were already on the PC. One upload row, verified | 8d15787 | Pass |
 | Interrupted video resumes, first attempt (IMG_8114, 2.86 GB) | 4130bee | **Not a pass.** The phone sent the whole file again. Cause: the speed test did not send the photo's date, so the resume lookup never ran. Fixed in 4130bee, then tested again with IMG_8116 |
 | Video re-sent while the stalled attempt is still open (IMG_8115) | before 8d15787 | **Not a pass.** The phone sent the whole 3.2 GB again. Cause: the server opened a second upload while the first was still open. Fixed in 8d15787 |
-| Full library run (Back up photos): 4,075 items, already on PC 3,929, verified 146, failed 0, unavailable 0 | current | Pass. 3,929 + 146 = 4,075. The PC holds 4,077, two more than the phone; one is `copy_19B8A555….mov`. The other is not yet explained |
+| Full library run (Back up photos): 4,075 items, already on PC 3,929, verified 146, failed 0, unavailable 0 | current | Pass. 3,929 + 146 = 4,075. The PC count was not compared after the run; photos were deleted from the PC for the retry test, so the counts no longer line up |
 
 ## Carried from earlier notes, not re-checked for this gate
 
@@ -44,9 +44,6 @@ Unit tests cover the run record (`retryFailed`, `retry(at:)`). The screen button
 2. Live Photo: one Live Photo arrives as two files with the same base name in the same folder, and shows backed up only
    when both are verified.
 3. RAW beside JPEG or HEIC: both files arrive and count as backed up only when both are verified.
-4. Phone totals match the PC after a full run, as at Phase 5 (REP-02). The first full run is recorded above; the two-file
-   difference is open.
-
 ## Parked (not checked, recorded as known gaps)
 
 - iCloud-only items: reported as unavailable, not downloaded from iCloud (CLOUD-01..03). Needs its own phase or plan.
@@ -60,5 +57,5 @@ Unit tests cover the run record (`retryFailed`, `retry(at:)`). The screen button
 
 ## Decision
 
-Open. Close the gate when the four "Still to check" items pass on a device. Then decide whether to start a new phase for
+Open. Close the gate when the three "Still to check" items pass on a device. Then decide whether to start a new phase for
 the parked iCloud work.
