@@ -24,7 +24,11 @@ Next time: start the app, open the saved page on the iPhone (Share → Add to Ho
 
 Guides: [Windows setup](docs/setup-windows.md) · [Troubleshooting](docs/troubleshooting.md) ·
 [Apple Shortcut](docs/ios-shortcut.md) · [iPhone test checklist](docs/iphone-test-checklist.md) ·
-[API](docs/api.md) · [Native iOS roadmap](docs/ROADMAP_IOS_COMPANION.md)
+[API](docs/api.md) · [Native iOS roadmap](docs/ROADMAP_IOS_COMPANION.md) ·
+[Install the iPhone app](docs/ios-install.md) · [iOS build log](docs/ios-builds.md)
+
+The native iPhone app is installed from Windows with AltStore and a free Apple ID. See
+[Install the iPhone app](docs/ios-install.md) for the one-time setup and the weekly refresh.
 
 ## What has and has not been tested
 
