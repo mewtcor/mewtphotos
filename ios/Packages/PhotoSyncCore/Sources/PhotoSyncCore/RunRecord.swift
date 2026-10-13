@@ -45,22 +45,27 @@ public struct RunRecord: Codable, Equatable, Sendable {
     /// A new run: every planned item gets its outcome from the plan (already on the PC, unavailable), or waits
     /// as pending when it is to be sent.
     public static func start(_ plan: [(item: LibraryItem, decision: PlanDecision)], at now: Date) -> RunRecord {
-        let entries = plan.map { entry -> RunEntry in
-            let outcome: ItemOutcome
-            switch entry.decision {
-            case .alreadyOnPC: outcome = .alreadyOnPC
-            case .send: outcome = .pending
-            case .unavailable(let reason): outcome = .unavailable(reason)
-            }
-            return RunEntry(assetId: entry.item.assetId, fileName: entry.item.fileName, date: entry.item.date, outcome: outcome)
-        }
-        return RunRecord(startedAt: now, entries: entries)
+        RunRecord(startedAt: now, entries: plan.map(runEntry))
     }
 
-    /// Opens the run to use now. An unfinished run (running or stopped) is continued as it was; a finished one is
-    /// kept until a new run replaces it, so its result can still be shown.
+    private static func runEntry(_ planned: (item: LibraryItem, decision: PlanDecision)) -> RunEntry {
+        let outcome: ItemOutcome
+        switch planned.decision {
+        case .alreadyOnPC: outcome = .alreadyOnPC
+        case .send: outcome = .pending
+        case .unavailable(let reason): outcome = .unavailable(reason)
+        }
+        return RunEntry(assetId: planned.item.assetId, fileName: planned.item.fileName, date: planned.item.date, outcome: outcome)
+    }
+
+    /// Opens the run to use now. An unfinished run (running or stopped) is continued as it was, plus any library items
+    /// that appeared since it started; a finished one is kept until a new run replaces it, so its result can still be shown.
     public static func open(existing: RunRecord?, plan: [(item: LibraryItem, decision: PlanDecision)], at now: Date) -> RunRecord {
-        if let existing, existing.status != .finished { return existing }
+        if var existing, existing.status != .finished {
+            let listed = Set(existing.entries.map(\.assetId))
+            existing.entries += plan.filter { !listed.contains($0.item.assetId) }.map(runEntry)
+            return existing
+        }
         return start(plan, at: now)
     }
 

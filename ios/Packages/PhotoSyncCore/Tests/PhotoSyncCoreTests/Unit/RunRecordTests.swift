@@ -53,6 +53,19 @@ struct RunRecordTests {
         #expect(resumed.startedAt == now)
     }
 
+    @Test("continuing an unfinished run adds the items that appeared since it started, at the end")
+    func continueAddsNewItems() {
+        var record = RunRecord.start(plan(["A", "B"]), at: now)
+        record.record(.verified, at: 0)
+        record.stop()
+
+        let opened = RunRecord.open(existing: record, plan: plan(["A", "B", "C", "D"], known: ["D"]), at: now.addingTimeInterval(60))
+        #expect(opened.entries.map(\.assetId) == ["A", "B", "C", "D"])
+        #expect(opened.entries.map(\.outcome) == [.verified, .pending, .pending, .alreadyOnPC])
+        #expect(opened.startedAt == now)
+        #expect(opened.status == .stopped)
+    }
+
     @Test("a run killed mid-send is resumed; the item that was in flight is pending again")
     func killedMidSend() throws {
         let dir = try scratchDirectory()
