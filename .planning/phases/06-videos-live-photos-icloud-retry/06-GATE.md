@@ -26,8 +26,9 @@ video waits for the stalled attempt and resumes it). Retry: see "Retry" below fo
 
 - **Live Photo, both halves** (IMG_8068): the project notes from build 28 record that the still and the video both arrived.
   Not checked again for this gate. Re-check on the next build.
-- **RAW beside JPEG or HEIC** (06-01): the notes record a fix that sends the companion. Not confirmed on a device for this
-  gate. Check it on the next build.
+- **RAW beside JPEG or HEIC** (06-01): removed from this gate by owner decision on 2026-10-13. The phone's camera is set to
+  ProRAW (JPEG Lossless), which saves a single DNG, so there was no companion to test. IMG_8123.DNG arrived alone and
+  verified. Not changed, to keep the camera settings as they are. Record of the behaviour only; not a pass.
 
 ## Retry (REP-04)
 
@@ -42,7 +43,6 @@ Unit tests cover the run record (`retryFailed`, `retry(at:)`). The screen button
 
 1. Retry: force a failure (for example, turn Wi-Fi off during a run, or pick an item that fails), then use **Retry N failed**
    and a single **Retry**. Totals must still add up and match the PC.
-2. RAW beside JPEG or HEIC: both files arrive and count as backed up only when both are verified.
 ## Parked (not checked, recorded as known gaps)
 
 - iCloud-only items: reported as unavailable, not downloaded from iCloud (CLOUD-01..03). Needs its own phase or plan.
