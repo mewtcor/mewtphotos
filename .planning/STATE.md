@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 01
-current_phase_name: Build, Install and Pair
-status: executing
-stopped_at: Completed 01-02-PLAN.md
+current_phase: 07
+current_phase_name: Coverage Report
+status: between phases
+stopped_at: Phase 7 gate closed (go); housekeeping sync 2026-10-14
 last_updated: "2026-10-11T19:41:37.874Z"
-last_activity: 2026-10-12
-last_activity_desc: Phase 01 execution started
+last_activity: 2026-10-14
+last_activity_desc: Planning files synced with phase gates 1-7
 state_head: 4db10047a022e77c4f7206613585b602f473b706
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 6
   total_plans: 6
-  completed_plans: 2
-  percent: 0
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -23,16 +23,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-11)
 
 **Core value:** Every photo and video on the iPhone reaches the PC as its untouched original, including both halves of Live Photos, and nothing is ever reported as backed up unless the PC has verified it.
-**Current focus:** Phase 01 — Build, Install and Pair
+**Current focus:** Close open gaps (retry on device, unfinished-run fix on device), then decide on iCloud-only downloads
 
 ## Current Position
 
-Phase: 01 (Build, Install and Pair) — EXECUTING
-Plan: 3 of 6
-Status: Ready to execute
-Last activity: 2026-10-12 — Phase 01 execution started
+Phase: 07 (Coverage Report) — gate closed (go)
+Status: Between phases. Phases 1-7 closed.
+Last activity: 2026-10-14 — planning files synced
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100% of roadmap phases (gaps below)
 
 ## Performance Metrics
 
@@ -77,7 +76,10 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Device-test Retry (REP-04): force a failure, then `Retry N failed` and single `Retry`; totals must match the PC.
+- Device-verify `c272a40` (unfinished run picks up photos taken since it started).
+- Re-check Live Photo IMG_8068 (both halves) on the next build.
+- Parked: iCloud-only downloads (CLOUD-01..03); slow-mo, HDR/Dolby Vision, Cinematic, ProRes; edited versions not backed up.
 
 ### Blockers/Concerns
 
@@ -96,6 +98,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-11T19:41:37.853Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-10-14
+Stopped at: Housekeeping sync after Phase 7 gate
 Resume file: None

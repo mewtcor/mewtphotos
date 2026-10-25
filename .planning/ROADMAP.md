@@ -34,12 +34,13 @@ items and retry (Phase 6).
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Build, Install and Pair** - Walking skeleton: Linux CI, Mac build to `.ipa`, AltStore install, manual pairing, plain-HTTP reach, Keychain, log export
-- [ ] **Phase 2: Feasibility on the Real iPhone** - Go/no-go: stored parts per item type, byte-identical originals, video speed, iCloud/hidden/burst behaviour
-- [ ] **Phase 3: PC Server Upgrades** - Windows-only additive server changes so a native client gets truthful answers and Live Photo pairs stay together
-- [ ] **Phase 4: Pair and See What's Missing** - QR pairing, library access handling, and a read-only count of what the PC does not have yet
+- [x] **Phase 1: Build, Install and Pair** - Walking skeleton: Linux CI, Mac build to `.ipa`, AltStore install, manual pairing, plain-HTTP reach, Keychain, log export
+- [x] **Phase 2: Feasibility on the Real iPhone** - Go/no-go: stored parts per item type, byte-identical originals, video speed, iCloud/hidden/burst behaviour
+- [x] **Phase 3: PC Server Upgrades** - Windows-only additive server changes so a native client gets truthful answers and Live Photo pairs stay together
+- [x] **Phase 4: Pair and See What's Missing** - QR pairing, library access handling, and a read-only count of what the PC does not have yet
 - [x] **Phase 5: Back Up Photos** - "Back up now" sends every photo as its original, with live progress and a result the PC confirms
-- [ ] **Phase 6: Videos, Live Photos, iCloud and Retry** - Complete library coverage, resumable large videos, iCloud downloads, retry
+- [x] **Phase 6: Videos, Live Photos, iCloud and Retry** - Closed (go) 2026-10-13 with gaps: iCloud-only downloads and slow-mo/HDR/Cinematic/ProRes parked by owner; retry built, not yet device-tested
+- [x] **Phase 7: Coverage Report** - Closed (go) 2026-10-13; the phone lists what the PC lacks; unfinished-run fix `c272a40` not yet device-verified
 
 ## Phase Details
 
@@ -61,10 +62,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Private GitHub repo (name confirmed first), Linux CI on every push (typecheck + vitest) and the permission-text gate with negative controls
 - [x] 01-02-PLAN.md — Swift pairing client against the real server on Linux (transport, redacting DeviceKey, ServerClient, strict address parser, contract tests)
-- [ ] 01-03-PLAN.md — Remembered pairing: PairingFlow, pairing.json, scrubbed RunLog (real-server relaunch test)
-- [ ] 01-04-PLAN.md — SwiftUI app target: XcodeGen spec, bundle ID decision, Keychain adapter, pair form, launch evidence, version row, log export
-- [ ] 01-05-PLAN.md — Mac build to unsigned .ipa (two builds from one commit, explicit dispatches only), artifact checks, builds and minutes table
-- [ ] 01-06-PLAN.md — Single-session device test on the real iPhone and the go/no-go note (01-GATE.md)
+- [x] 01-03-PLAN.md — Remembered pairing: PairingFlow, pairing.json, scrubbed RunLog (real-server relaunch test)
+- [x] 01-04-PLAN.md — SwiftUI app target: XcodeGen spec, bundle ID decision, Keychain adapter, pair form, launch evidence, version row, log export
+- [x] 01-05-PLAN.md — Mac build to unsigned .ipa (two builds from one commit, explicit dispatches only), artifact checks, builds and minutes table
+- [x] 01-06-PLAN.md — Single-session device test on the real iPhone and the go/no-go note (01-GATE.md)
 
 **UI hint**: yes
 
@@ -154,12 +155,13 @@ start until the Phase 2 go/no-go note says go.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build, Install and Pair | 2/6 | In Progress | - |
-| 2. Feasibility on the Real iPhone | 0/TBD | Not started | - |
-| 3. PC Server Upgrades | 0/TBD | Not started | - |
-| 4. Pair and See What's Missing | 0/TBD | Not started | - |
-| 5. Back Up Photos | 0/TBD | Not started | - |
-| 6. Videos, Live Photos, iCloud and Retry | 0/TBD | Not started | - |
+| 1. Build, Install and Pair | 6/6 | Complete | 2026-10-13 |
+| 2. Feasibility on the Real iPhone | Gate: go | Complete | 2026-10-13 |
+| 3. PC Server Upgrades | 4/4 | Complete | 2026-10-13 |
+| 4. Pair and See What's Missing | Gate: go | Complete | 2026-10-13 |
+| 5. Back Up Photos | Gate: go | Complete | 2026-10-13 |
+| 6. Videos, Live Photos, iCloud and Retry | Gate: go, with gaps | Complete (gaps recorded) | 2026-10-13 |
+| 7. Coverage Report | Gate: go | Complete | 2026-10-13 |
 
 ## Planning Notes
 
