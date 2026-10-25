@@ -11,3 +11,4 @@ ios/PhotoSync.xcodeproj/
 DerivedData/
 .DS_Store
 .ci-tmp/
+.verify/
