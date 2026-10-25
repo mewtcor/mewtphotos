@@ -30,7 +30,9 @@ enum Theme {
 
 /// A scrolling screen on the app background. Every screen is one of these holding panels.
 struct Screen<Content: View>: View {
-    @ViewBuilder var content: Content
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
 
     var body: some View {
         ScrollView {
@@ -49,8 +51,13 @@ struct Screen<Content: View>: View {
 
 /// A titled group of rows on a rounded card.
 struct Panel<Content: View>: View {
-    var title: String?
-    @ViewBuilder var content: Content
+    let title: String?
+    let content: Content
+
+    init(_ title: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
