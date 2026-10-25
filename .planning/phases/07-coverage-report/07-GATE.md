@@ -11,7 +11,7 @@ coverage section.
 - **Phone:** the Back up photos screen has a **Coverage** section. It shows whether every library photo is on the PC, the
   photos that are not (first 20 by name), how many library photos the PC holds, and how many photos the PC keeps that are
   no longer on the phone. The last number is information only: the PC keeps deleted photos on purpose.
-- **Unit tests:** `CoverageTests` in the PhotoSyncCore package cover the comparison, with and without missing items.
+- **Unit tests:** `CoverageTests` in the MewtPhotosCore package cover the comparison, with and without missing items.
 
 ## Checked on the device
 

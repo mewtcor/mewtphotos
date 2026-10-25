@@ -15,10 +15,10 @@ Note: the existing server/shared/tests/docs files are currently untracked in git
 | `.github/workflows/ci.yml` | config (CI) | batch | none (`package.json` scripts are the commands it calls) | no analog |
 | `.github/workflows/ios-build.yml` | config (CI) | batch | none | no analog |
 | `ios/project.yml` | config | n/a | none | no analog |
-| `ios/PhotoSync/Info.plist` | config | n/a | none | no analog |
+| `ios/MewtPhotos/Info.plist` | config | n/a | none | no analog |
 | `ios/scripts/check_info_plist.py` | utility (gate) | transform | none (only PowerShell `scripts/start-backup.ps1` exists, different language) | no analog |
-| `ios/Packages/PhotoSyncCore/Package.swift` | config | n/a | none | no analog |
-| `.../Sources/PhotoSyncCore/Wire.swift` | model | request-response | `shared/schemas.ts` (PairRequest, ClientStatus, health) + `server/app.ts` 187-217 | contract-match |
+| `ios/Packages/MewtPhotosCore/Package.swift` | config | n/a | none | no analog |
+| `.../Sources/MewtPhotosCore/Wire.swift` | model | request-response | `shared/schemas.ts` (PairRequest, ClientStatus, health) + `server/app.ts` 187-217 | contract-match |
 | `.../ServerClient.swift` | service | request-response | `web/src/api.ts`, `web/src/uploader.ts` (JS client of same API) | role-match |
 | `.../HTTPTransport.swift` | service | request-response | `web/src/api.ts` (ApiError / NetworkError mapping) | role-match |
 | `.../ServerAddress.swift` | utility | transform | `web/src/Phone.tsx` (parses `#pair=CODE` fragment) | partial |
@@ -26,9 +26,9 @@ Note: the existing server/shared/tests/docs files are currently untracked in git
 | `.../PairingStore.swift` | store | file-I/O | `server/config.ts` (`loadSettings`/`saveSettings`) | partial |
 | `.../RunLog.swift` | utility | file-I/O | `Ctx.log` in `server/engine.ts` / `server/app.ts` | partial |
 | `.../LaunchEvidence.swift` | utility | transform | none | no analog |
-| `.../Tests/PhotoSyncCoreTests/Unit/*` | test | transform | `tests/units.test.ts` | role-match |
-| `.../Tests/PhotoSyncCoreTests/Contract/*` | test | request-response | `tests/helpers.ts` `startServer` + `tests/engine.test.ts` | role-match |
-| `ios/PhotoSync/PhotoSyncApp.swift`, `ContentView.swift`, `AppModel.swift`, `AppEnvironment.swift`, `KeychainDeviceKeyStore.swift` | component/store | event-driven | `web/src/Phone.tsx` (pairing + status form) | partial |
+| `.../Tests/MewtPhotosCoreTests/Unit/*` | test | transform | `tests/units.test.ts` | role-match |
+| `.../Tests/MewtPhotosCoreTests/Contract/*` | test | request-response | `tests/helpers.ts` `startServer` + `tests/engine.test.ts` | role-match |
+| `ios/MewtPhotos/MewtPhotosApp.swift`, `ContentView.swift`, `AppModel.swift`, `AppEnvironment.swift`, `KeychainDeviceKeyStore.swift` | component/store | event-driven | `web/src/Phone.tsx` (pairing + status form) | partial |
 | `docs/iphone-device-checklist.md` (name TBD, Phase 1 device test) | docs | n/a | `docs/iphone-test-checklist.md` | exact style |
 | README / docs updates for build + install | docs | n/a | `docs/setup-windows.md` | role-match |
 
@@ -43,7 +43,7 @@ web/dist/
 *.log
 .tmp-tests/
 ```
-Append: `.build/`, `.swiftpm/`, `build/`, `Payload/`, `*.ipa`, `ios/PhotoSync.xcodeproj/`, `DerivedData/`, `.DS_Store`. Do not add `package-lock.json`; BLD-01 needs it committed. Do not ignore `*.log` exceptions needed by CI; the existing `*.log` rule is fine (CI build.log is not committed).
+Append: `.build/`, `.swiftpm/`, `build/`, `Payload/`, `*.ipa`, `ios/MewtPhotos.xcodeproj/`, `DerivedData/`, `.DS_Store`. Do not add `package-lock.json`; BLD-01 needs it committed. Do not ignore `*.log` exceptions needed by CI; the existing `*.log` rule is fine (CI build.log is not committed).
 
 ### `ios/.../Wire.swift` (model, request-response)
 
@@ -58,7 +58,7 @@ export const PairRequest = z.object({
 ```
 Responses (`server/app.ts:202-217`):
 ```ts
-app.get(`${API}/health`, async () => ({ ok: true, name: 'photosync', apiVersion: 1 }));
+app.get(`${API}/health`, async () => ({ ok: true, name: 'mewtphotos', apiVersion: 1 }));
 ...
 return { token, deviceId: id };
 ...
@@ -82,7 +82,7 @@ Platform rule (RESEARCH Pitfall 3): no `waitsForConnectivity`, `allowsExpensiveN
 ```ts
 const url = lanUrl() && `${lanUrl()}/#pair=${code}`;
 ```
-Parser must accept `ip`, `ip:port`, `http://ip:port`, and `http://ip:port/#pair=CODE` (default port 8787 per `PHOTOSYNC_PORT` in `server/main.ts`). Unit tests copy the style of `tests/units.test.ts` (table of input and expected output).
+Parser must accept `ip`, `ip:port`, `http://ip:port`, and `http://ip:port/#pair=CODE` (default port 8787 per `MEWTPHOTOS_PORT` in `server/main.ts`). Unit tests copy the style of `tests/units.test.ts` (table of input and expected output).
 
 ### `ios/.../DeviceKey.swift`, `RunLog.swift` (utility)
 
@@ -92,15 +92,15 @@ Parser must accept `ip`, `ip:port`, `http://ip:port`, and `http://ip:port/#pair=
 
 **Analog:** `server/config.ts` `loadSettings` / `saveSettings` (single small JSON blob, defaults filled when absent). Swift version: Codable struct, `Data.write(to:options:.atomic)`, return nil when file absent (mirrors "return `null` for not found"). Only non-secret fields (server URL, deviceId, deviceName, serverName); token goes to Keychain.
 
-### `ios/PhotoSync/*.swift` app target (component, event-driven)
+### `ios/MewtPhotos/*.swift` app target (component, event-driven)
 
-**Analog:** `web/src/Phone.tsx` for screen flow: enter address and code, Pair, then show "Connected to {serverName}", persisted pairing reloaded on launch, errors shown as the server's `message` text (the server messages already say what to do next). Show version and build (BLD-06) from `CFBundleShortVersionString`, `CFBundleVersion`, `PhotoSyncGitSHA`. Keychain adapter and transport shapes: RESEARCH.md "Keychain adapter" (line 588) and "Core transport + client shape" (line 614). Keep app target under ~400 lines.
+**Analog:** `web/src/Phone.tsx` for screen flow: enter address and code, Pair, then show "Connected to {serverName}", persisted pairing reloaded on launch, errors shown as the server's `message` text (the server messages already say what to do next). Show version and build (BLD-06) from `CFBundleShortVersionString`, `CFBundleVersion`, `MewtPhotosGitSHA`. Keychain adapter and transport shapes: RESEARCH.md "Keychain adapter" (line 588) and "Core transport + client shape" (line 614). Keep app target under ~400 lines.
 
-### Tests: `Tests/PhotoSyncCoreTests/Unit` (test, transform)
+### Tests: `Tests/MewtPhotosCoreTests/Unit` (test, transform)
 
 **Analog:** `tests/units.test.ts` (pure-function tables; SHA-256 checked against a reference implementation, i.e. test against an independent oracle). Swift Testing, one file per Core type.
 
-### Tests: `Tests/PhotoSyncCoreTests/Contract` (test, request-response)
+### Tests: `Tests/MewtPhotosCoreTests/Contract` (test, request-response)
 
 **Analog:** `tests/helpers.ts` `startServer` lines 27-41: how the real server is stood up and a code fetched.
 ```ts
@@ -110,11 +110,11 @@ const { app, pairing } = built;
 const res = await app.inject({ method: 'POST', url: `${API}/pair`, remoteAddress: PHONE_IP, payload: { code: pairing.current().code, deviceName: 'Test iPhone' } });
 token = (res.json() as { token: string }).token;
 ```
-Swift contract test does the same over real HTTP: read `code` from `GET /api/v1/admin/pairing` (loopback, `Host: 127.0.0.1:<port>`), then `ServerClient.pair`, `status`, one wrong-code case (`bad_pairing_code`, max one; throttle is 8 per 5 min per IP). Base URL from env `PHOTOSYNC_CONTRACT_URL`; when `CI=true` and the var is missing, fail rather than skip. Fallback if `server/main.ts` misbehaves on Linux: `tests/contract/serve.ts` copying lines 27-41 of `tests/helpers.ts` (TS conventions: `.ts` import extensions, `import type`, named exports, purpose header comment, no console in library code).
+Swift contract test does the same over real HTTP: read `code` from `GET /api/v1/admin/pairing` (loopback, `Host: 127.0.0.1:<port>`), then `ServerClient.pair`, `status`, one wrong-code case (`bad_pairing_code`, max one; throttle is 8 per 5 min per IP). Base URL from env `MEWTPHOTOS_CONTRACT_URL`; when `CI=true` and the var is missing, fail rather than skip. Fallback if `server/main.ts` misbehaves on Linux: `tests/contract/serve.ts` copying lines 27-41 of `tests/helpers.ts` (TS conventions: `.ts` import extensions, `import type`, named exports, purpose header comment, no console in library code).
 
 ### `.github/workflows/ci.yml` / `ios-build.yml`
 
-No in-repo analog. Commands to call come from `package.json` scripts (lines 10-17): `npm run typecheck` (`tsc --noEmit`), `npm test` (`vitest run`), server start `node --disable-warning=ExperimentalWarning server/main.ts` (`npm start`). Env: `PHOTOSYNC_PORT`, `PHOTOSYNC_DATA_DIR` (do not set `PHOTOSYNC_HOST`, per RESEARCH Pitfall 9). Use the skeletons in RESEARCH.md lines 215-254 and 504-547. Pin `ubuntu-24.04` and `macos-26`.
+No in-repo analog. Commands to call come from `package.json` scripts (lines 10-17): `npm run typecheck` (`tsc --noEmit`), `npm test` (`vitest run`), server start `node --disable-warning=ExperimentalWarning server/main.ts` (`npm start`). Env: `MEWTPHOTOS_PORT`, `MEWTPHOTOS_DATA_DIR` (do not set `MEWTPHOTOS_HOST`, per RESEARCH Pitfall 9). Use the skeletons in RESEARCH.md lines 215-254 and 504-547. Pin `ubuntu-24.04` and `macos-26`.
 
 ### `docs/iphone-device-checklist` (docs)
 
@@ -146,9 +146,9 @@ No server change in Phase 1. If one appears necessary, it must be additive and c
 | `.gitattributes` | config | n/a | none exists |
 | `.github/workflows/ci.yml`, `ios-build.yml` | CI config | batch | no `.github/` directory |
 | `ios/project.yml` | XcodeGen spec | n/a | no iOS project |
-| `ios/PhotoSync/Info.plist` | plist | n/a | no iOS project |
+| `ios/MewtPhotos/Info.plist` | plist | n/a | no iOS project |
 | `ios/scripts/check_info_plist.py` | gate script | transform | no Python in repo (use RESEARCH.md line 560) |
-| `ios/Packages/PhotoSyncCore/Package.swift` | Swift package | n/a | no Swift in repo |
+| `ios/Packages/MewtPhotosCore/Package.swift` | Swift package | n/a | no Swift in repo |
 | `KeychainDeviceKeyStore.swift`, `AppEnvironment.swift`, `LaunchEvidence.swift` | Apple adapters | n/a | no Swift; use RESEARCH.md lines 588-662 |
 
 ## Metadata

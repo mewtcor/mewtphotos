@@ -1,25 +1,26 @@
-name: PhotoSync
+name: MewtPhotos
 options:
   deploymentTarget:
     iOS: "18.0"
 packages:
-  PhotoSyncCore:
-    path: Packages/PhotoSyncCore
+  MewtPhotosCore:
+    path: Packages/MewtPhotosCore
 targets:
-  PhotoSync:
+  MewtPhotos:
     type: application
     platform: iOS
     sources:
-      - path: PhotoSync
+      - path: MewtPhotos
         excludes:
           - Info.plist
     dependencies:
-      - package: PhotoSyncCore
+      - package: MewtPhotosCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mewtcor.photosync
-        PRODUCT_NAME: PhotoSync
-        INFOPLIST_FILE: PhotoSync/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.mewtcor.mewtphotos
+        PRODUCT_NAME: MewtPhotos
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: MewtPhotos/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         SWIFT_VERSION: "5.0"
         MARKETING_VERSION: "0.1.0"

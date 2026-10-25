@@ -199,7 +199,7 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
   app.addContentTypeParser('*', (_req, payload, done) => done(null, payload));
 
   // ---- sender API --------------------------------------------------------
-  app.get(`${API}/health`, async () => ({ ok: true, name: 'photosync', apiVersion: 1 }));
+  app.get(`${API}/health`, async () => ({ ok: true, name: 'mewtphotos', apiVersion: 1 }));
 
   app.post(`${API}/pair`, async (req) => {
     const body = PairRequest.parse(req.body);

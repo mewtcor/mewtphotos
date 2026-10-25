@@ -42,7 +42,7 @@ The background transfer of an 80 MB or larger video works with the screen locked
 
 Phase 2 writes exported originals to the app's Documents folder, so Files and the PC's Apple Devices app can see them. Phase 1 (T-01-15) allowed only the scrubbed run log there. This is a deliberate, temporary exception for the USB test.
 
-Action: delete the `PhotoSyncExport` folder from the phone (Files > On My iPhone > PhotoSync) after the test. The PC copies in `Downloads\phase2-export` and `Downloads\phase2-usb` are test copies and can be deleted too.
+Action: delete the `MewtPhotosExport` folder from the phone (Files > On My iPhone > Mewt Photos) after the test. The PC copies in `Downloads\phase2-export` and `Downloads\phase2-usb` are test copies and can be deleted too.
 
 ## Builds used
 
@@ -73,6 +73,6 @@ Not tested, accepted by the user to skip for time:
 - FEAS-05 observations: an iCloud-only item, a hidden item, burst frames.
 
 Open clean-up:
-- Delete the test exports from the phone: Files > On My iPhone > PhotoSync > `PhotoSyncExport`. This deviation from the Phase 1 threat notes (T-01-15) was temporary for the USB test.
+- Delete the test exports from the phone: Files > On My iPhone > Mewt Photos > `MewtPhotosExport`. This deviation from the Phase 1 threat notes (T-01-15) was temporary for the USB test.
 - Delete the PC test copies in `Downloads\phase2-export` and `Downloads\phase2-usb` once Phase 3 starts.
 - The background-upload completion is lost if iOS terminates the app before the transfer ends. The next upload or the retry finishes it. Phase 3 should cover this.

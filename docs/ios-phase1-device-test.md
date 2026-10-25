@@ -16,10 +16,10 @@ Note: iOS 18.0 to 18.5 can mis-handle the Local Network prompt. Write the iOS ve
 
 Build A is run 5 and build B is run 6, both from commit `80b543d`. On the PC, run:
 
-- `gh run download 38184634926 -n PhotoSync-ipa -D PhotoSync-build-A`
-- `gh run download 38184683733 -n PhotoSync-ipa -D PhotoSync-build-B`
+- `gh run download 38184634926 -n MewtPhotos-ipa -D MewtPhotos-build-A`
+- `gh run download 38184683733 -n MewtPhotos-ipa -D MewtPhotos-build-B`
 
-Copy `PhotoSync.ipa` from each folder to iCloud Drive as `PhotoSync-build-A.ipa` and `PhotoSync-build-B.ipa`.
+Copy `MewtPhotos.ipa` from each folder to iCloud Drive as `MewtPhotos-build-A.ipa` and `MewtPhotos-build-B.ipa`.
 
 - [ ] Both files are in Files on the iPhone.
 
@@ -27,14 +27,14 @@ Outcome: ____
 
 ## 1. Install build A
 
-- [ ] In AltStore on the iPhone, go to My Apps, tap +, and pick `PhotoSync-build-A.ipa`.
-- [ ] One PhotoSync icon is on the Home Screen, and one entry is in My Apps.
+- [ ] In AltStore on the iPhone, go to My Apps, tap +, and pick `MewtPhotos-build-A.ipa`.
+- [ ] One Mewt Photos icon is on the Home Screen, and one entry is in My Apps.
 
 Outcome, and any AltStore error number: ____
 
 ## 2. First launch
 
-- [ ] Open PhotoSync.
+- [ ] Open MewtPhotos.
 - [ ] Note whether the Local Network question appears, and before or after tapping Pair.
 - [ ] The About section reads "Version 0.1.0 (build N)". N is 5 for build A.
 
@@ -58,7 +58,7 @@ Outcome: ____
 ## 5. AltStore refresh
 
 - [ ] In AltStore, go to My Apps and tap Refresh All. AltServer must be running and the phone on the same Wi-Fi.
-- [ ] Open PhotoSync.
+- [ ] Open MewtPhotos.
 - [ ] Expect "Connected to" still shown.
 - [ ] Note whether the Local Network question came back.
 
@@ -66,7 +66,7 @@ Outcome: ____
 
 ## 6. Install build B over build A
 
-- [ ] In AltStore, tap + and pick `PhotoSync-build-B.ipa`.
+- [ ] In AltStore, tap + and pick `MewtPhotos-build-B.ipa`.
 - [ ] One icon only. About now reads build 6.
 - [ ] Pairing is still present.
 
@@ -74,7 +74,7 @@ Outcome: ____
 
 ## 7. Export the log
 
-- [ ] Open PhotoSync, tap Export log, then Save to Files.
+- [ ] Open Mewt Photos, tap Export log, then Save to Files.
 - [ ] Copy the file to the PC and open it.
 - [ ] Find the `launch` lines. Check that each has `version`, `build`, `sha`, `bundle`, `alt_bundle`, `keychain` and `pairing`.
 - [ ] After pairing, `keychain=found` and `pairing=present`.
@@ -89,7 +89,7 @@ Outcome: ____
 
 ## 8. Optional: unreachable PC
 
-- [ ] Stop the PC app, then relaunch PhotoSync on the phone.
+- [ ] Stop the PC app, then relaunch Mewt Photos on the phone.
 - [ ] Expect "Cannot reach your PC right now." followed by a next step.
 - [ ] Start the PC app again.
 

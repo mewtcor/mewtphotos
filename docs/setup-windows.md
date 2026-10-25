@@ -67,8 +67,8 @@ for a long time, which counts as closing it.
 |---|---|
 | Your photos | The backup folder (`...\Pictures\iPhone Backup\YYYY\MM\`) |
 | In-progress transfers | `<backup folder>\.incoming\*.part` (cleaned up automatically) |
-| Database (records, hashes, history) | `%LOCALAPPDATA%\PhotoSync\photosync.db` |
-| Log file | `%LOCALAPPDATA%\PhotoSync\server.log` (safe to delete while the app is stopped) |
+| Database (records, hashes, history) | `%LOCALAPPDATA%\MewtPhotos\mewtphotos.db` |
+| Log file | `%LOCALAPPDATA%\MewtPhotos\server.log` (safe to delete while the app is stopped) |
 
 Back up the database file together with the photos if you want to keep hashes and history; without it
 the photos are still ordinary files, but verification has nothing to compare against.

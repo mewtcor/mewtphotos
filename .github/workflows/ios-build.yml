@@ -17,7 +17,7 @@ jobs:
         run: |
           set -o errexit -o pipefail
           echo "T0=$(date +%s)" >> "$GITHUB_ENV"
-          python3 ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist
+          python3 ios/scripts/check_info_plist.py ios/MewtPhotos/Info.plist
           python3 ios/scripts/check_info_plist.py --self-test
 
       - name: Select Xcode and print versions
@@ -55,8 +55,8 @@ jobs:
         run: |
           set -o errexit -o pipefail
           xcodebuild build \
-            -project ios/PhotoSync.xcodeproj \
-            -scheme PhotoSync \
+            -project ios/MewtPhotos.xcodeproj \
+            -scheme MewtPhotos \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
@@ -70,14 +70,14 @@ jobs:
         run: |
           set -o errexit -o pipefail
           ls build/Build/Products/
-          APP=build/Build/Products/Release-iphoneos/PhotoSync.app
+          APP=build/Build/Products/Release-iphoneos/MewtPhotos.app
           rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
-          zip -qry PhotoSync.ipa Payload
-          unzip -l PhotoSync.ipa | head -20
+          zip -qry MewtPhotos.ipa Payload
+          unzip -l MewtPhotos.ipa | head -20
 
           # Read the listing into a file first: grep -q closing a pipe early can fail under pipefail.
-          unzip -Z1 PhotoSync.ipa > ipa-list.txt
-          grep -qx 'Payload/PhotoSync.app/PhotoSync' ipa-list.txt
+          unzip -Z1 MewtPhotos.ipa > ipa-list.txt
+          grep -qx 'Payload/MewtPhotos.app/MewtPhotos' ipa-list.txt
           # macOS wc pads its count with spaces, so trim them before comparing.
           [ "$(cut -d/ -f1 ipa-list.txt | sort -u | wc -l | tr -d ' ')" = "1" ]
           [ "$(cut -d/ -f2 ipa-list.txt | grep '\.app$' | sort -u | wc -l | tr -d ' ')" = "1" ]
@@ -85,13 +85,13 @@ jobs:
             echo "ERROR: the ipa contains a provisioning profile"; exit 1
           fi
 
-          unzip -p PhotoSync.ipa Payload/PhotoSync.app/Info.plist > built-Info.plist
+          unzip -p MewtPhotos.ipa Payload/MewtPhotos.app/Info.plist > built-Info.plist
           python3 ios/scripts/check_info_plist.py built-Info.plist --built
           [ "$(plutil -extract CFBundleVersion raw built-Info.plist)" = "$GITHUB_RUN_NUMBER" ]
 
           echo "--- evidence (informational) ---"
-          lipo -archs "$APP/PhotoSync" || true
-          file "$APP/PhotoSync" || true
+          lipo -archs "$APP/MewtPhotos" || true
+          file "$APP/MewtPhotos" || true
           codesign -dv "$APP" 2>&1 || true
 
       - name: Record elapsed time
@@ -104,8 +104,8 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: PhotoSync-ipa
-          path: PhotoSync.ipa
+          name: MewtPhotos-ipa
+          path: MewtPhotos.ipa
           retention-days: 7
           compression-level: 0
 

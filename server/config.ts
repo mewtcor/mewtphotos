@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync, renameSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,9 +9,36 @@ import { HttpError } from './security.ts';
 
 const GB = 1024 ** 3;
 
-/** App state (database, logs) lives outside the backup folder and outside the repo. */
+/**
+ * App state (database, logs) lives outside the backup folder and outside the repo. The app used to be
+ * called PhotoSync: a folder left by that name is moved to the new one the first time, so history stays.
+ * If the move fails (for example the old app is still running) the old folder keeps being used.
+ */
 export function dataDir(): string {
-  return process.env.PHOTOSYNC_DATA_DIR ?? path.join(process.env.LOCALAPPDATA ?? os.homedir(), 'PhotoSync');
+  if (process.env.MEWTPHOTOS_DATA_DIR) return process.env.MEWTPHOTOS_DATA_DIR;
+  const base = process.env.LOCALAPPDATA ?? os.homedir();
+  const dir = path.join(base, 'MewtPhotos');
+  const legacy = path.join(base, 'PhotoSync');
+  if (!existsSync(dir) && existsSync(legacy)) {
+    try {
+      renameSync(legacy, dir);
+    } catch {
+      return legacy;
+    }
+  }
+  return dir;
+}
+
+/** The database file in the data folder; a database left by the old name is renamed, with its journal files. */
+export function dbFile(dir: string): string {
+  const file = path.join(dir, 'mewtphotos.db');
+  const legacy = path.join(dir, 'photosync.db');
+  if (!existsSync(file) && existsSync(legacy)) {
+    for (const suffix of ['', '-wal', '-shm']) {
+      if (existsSync(legacy + suffix)) renameSync(legacy + suffix, file + suffix);
+    }
+  }
+  return file;
 }
 
 /** The real Pictures known folder, which may be redirected (for example into OneDrive). */
@@ -47,7 +75,7 @@ export function saveSettings(db: Db, settings: Settings): void {
 export async function validateDestination(dir: string): Promise<string> {
   if (!path.isAbsolute(dir)) throw new HttpError(400, 'bad_destination', 'Enter a full path such as D:\\Photos\\iPhone Backup.');
   const resolved = path.resolve(dir);
-  const probe = path.join(resolved, `.photosync-write-test-${process.pid}`);
+  const probe = path.join(resolved, `.mewtphotos-write-test-${process.pid}`);
   try {
     await mkdir(resolved, { recursive: true });
     await writeFile(probe, '', { flag: 'wx' });

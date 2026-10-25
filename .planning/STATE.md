@@ -23,7 +23,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-11)
 
 **Core value:** Every photo and video on the iPhone reaches the PC as its untouched original, including both halves of Live Photos, and nothing is ever reported as backed up unless the PC has verified it.
-**Current focus:** Device gaps closed 2026-10-26 (retry, unfinished-run fix, Live Photo); next is the decision on iCloud-only downloads
+**Current focus:** Device gaps closed 2026-10-26 (retry, unfinished-run fix, Live Photo); Phase 8 (interface redesign, `Theme.swift`) is written and waits for one macOS build and a device check; the iCloud-only downloads decision is still open
 
 ## Current Position
 
@@ -71,7 +71,7 @@ Recent decisions affecting current work:
 - [Roadmap]: Photos before videos. Phase 5 backs up photos; videos, Live Photos, iCloud and retry follow in Phase 6.
 - [Roadmap]: Research "Conflicts to resolve" adopted as written (JSON store, macos-26 with explicit Xcode, NSAllowsLocalNetworking only, Swift 6 core / Swift 5 app, sequential uploads, 8 MiB chunks).
 - [Phase 01]: Server vitest runs on windows-latest (engine test asserts Windows case-insensitive filenames); typecheck and guarded iOS steps stay on ubuntu-24.04
-- [Phase 01]: Repo mewtcor/photosync is private with default branch main; commits on main allowed (git.allow_default_branch_commits true)
+- [Phase 01]: Repo mewtcor/mewtphotos is private with default branch main; commits on main allowed (git.allow_default_branch_commits true)
 - [Phase 01]: Plan 02: Swift Testing works under swift test on Swift 6.4 Linux; NetworkFailure maps URLError to NSURLErrorDomain explicitly so Linux and iPhone agree
 
 ### Pending Todos

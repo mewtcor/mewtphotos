@@ -21,7 +21,7 @@ Confidence tags used below: **[SRC]** = read directly in this repo's code (HIGH)
 │  PhotoKitExporter  (PHAssetResourceManager -> temp file)       │     │  finishUpload / place / commitStored  │
 │  KeychainStore, ConnectivityMonitor(NWPathMonitor), Info.plist │     │  SQLite (uploads, files, sessions)    │
 ├───────────────────────────────┬───────────────────────────────┤     └───────────────▲──────────────────────┘
-│ PhotoSyncCore  (pure Swift package, Swift 6 mode,              │                     │ plain HTTP on LAN
+│ MewtPhotosCore  (pure Swift package, Swift 6 mode,              │                     │ plain HTTP on LAN
 │ builds and tests on LINUX + macOS; no Apple-only imports)      │                     │ Bearer device key
 │                                                                │                     │
 │  BackupCoordinator (actor) ── run state machine, worker pool   │                     │
@@ -36,7 +36,7 @@ Confidence tags used below: **[SRC]** = read directly in this repo's code (HIGH)
 └───────────────────────────────────────────────────────────────┘
 ```
 
-Rule of the diagram: **everything with logic lives in PhotoSyncCore behind a protocol; the app target only adapts Apple frameworks to those protocols.** The app target is the part that cannot be compiled or tested without a macOS CI build, so it must stay small and boring.
+Rule of the diagram: **everything with logic lives in MewtPhotosCore behind a protocol; the app target only adapts Apple frameworks to those protocols.** The app target is the part that cannot be compiled or tested without a macOS CI build, so it must stay small and boring.
 
 ### Component Responsibilities
 
@@ -59,19 +59,19 @@ Rule of the diagram: **everything with logic lives in PhotoSyncCore behind a pro
 ## Recommended Project Structure (repo layout)
 
 ```
-photosync/                              (existing repo root; git remote to be created, private)
+mewtphotos/                              (existing repo root; git remote to be created, private)
 ├── server/  shared/  web/  tests/      (unchanged; server additions below land here)
 ├── ios/
 │   ├── project.yml                     # XcodeGen spec: app target, Info.plist keys, local package ref
-│   ├── PhotoSync/                      # APP TARGET: Apple-only glue (keep < ~1500 lines)
-│   │   ├── PhotoSyncApp.swift
+│   ├── MewtPhotos/                      # APP TARGET: Apple-only glue (keep < ~1500 lines)
+│   │   ├── MewtPhotosApp.swift
 │   │   ├── UI/                         # SwiftUI: PairView, BackupView, IssuesView, LogView, DiagnosticsView
 │   │   ├── Adapters/                   # PhotoKitLibrary, PhotoKitExporter, KeychainStore, ConnectivityMonitor
 │   │   └── Assets.xcassets
 │   ├── Packages/
-│   │   └── PhotoSyncCore/              # PURE SWIFT PACKAGE (swift-tools-version 6.0, Swift 6 mode)
+│   │   └── MewtPhotosCore/              # PURE SWIFT PACKAGE (swift-tools-version 6.0, Swift 6 mode)
 │   │       ├── Package.swift
-│   │       ├── Sources/PhotoSyncCore/
+│   │       ├── Sources/MewtPhotosCore/
 │   │       │   ├── Wire/               # Codable mirrors of shared/schemas.ts
 │   │       │   ├── Server/             # ServerClient, HTTPTransport, ServerError
 │   │       │   ├── Upload/             # UploadMachine, ResumableUploader, RetryPolicy
@@ -80,7 +80,7 @@ photosync/                              (existing repo root; git remote to be cr
 │   │       │   ├── Planning/           # Planner, ResourceNaming, ResourceKey
 │   │       │   ├── Run/                # BackupCoordinator, Reconciler, RunSnapshot
 │   │       │   └── Support/            # RunLog, Hashing (CryptoKit | swift-crypto), PairingLink, Clock seams
-│   │       └── Tests/PhotoSyncCoreTests/
+│   │       └── Tests/MewtPhotosCoreTests/
 │   │           ├── Unit/               # pure logic + fake transport
 │   │           ├── Contract/           # real Node server (spawned), real URLSessionTransport
 │   │           └── Fixtures/wire/      # JSON captured from the real server (also checked by vitest)
@@ -342,8 +342,8 @@ Dependencies for Linux-buildable Core: GRDB (needs system SQLite: `apt-get insta
 ## CI Economics and Build Pipeline
 
 - **Free private-repo allowance is 2,000 minutes/month and macOS standard runners bill at roughly 10x Linux** ($0.062 vs $0.006 per minute) [DOC: GitHub billing page; multiplier derived from the per-minute rates], i.e. about 200 macOS minutes a month. Public repos get standard runners free [DOC]; the repo has no secrets, so making it public would remove the limit, but the user chose private. Therefore:
-  - `ios-core.yml` (ubuntu, every push, path-filtered to `ios/**`, `shared/**`, `server/**`, `tests/**`): `actions/setup-node` (>= 22.18), `npm ci`, `swift test --package-path ios/Packages/PhotoSyncCore`. Ubuntu 24.04 runner image ships Swift 6.3.x [DOC: runner-images release notes], so no install step.
-  - `ios-build.yml` (macOS, `workflow_dispatch` + tag only, `concurrency: cancel-in-progress`, SPM cache via `actions/cache`): `brew install xcodegen`, `xcodegen generate`, `xcodebuild -project ios/PhotoSync.xcodeproj -scheme PhotoSync -sdk iphoneos -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build`, then `mkdir Payload && cp -R build/Build/Products/Release-iphoneos/PhotoSync.app Payload/ && zip -r PhotoSync.ipa Payload`, upload as artifact. AltStore re-signs it with the free Apple ID [DOC: community-reported unsigned-IPA + AltStore flow; **[SPIKE]** first build proves it]. Pick the runner image explicitly (`macos-26` with Xcode 26.x, or `macos-15`) and pin Xcode via `xcode-select`/`maxim-lobanov/setup-xcode` rather than relying on `macos-latest` [DOC: `macos-latest` migration to macOS 26 was announced for mid-2026, unconfirmed]. Unsigned builds can pick an older SDK than signed ones [DOC: Apple forum]; verify the built `.app` runs on iOS 18+ in the spike.
+  - `ios-core.yml` (ubuntu, every push, path-filtered to `ios/**`, `shared/**`, `server/**`, `tests/**`): `actions/setup-node` (>= 22.18), `npm ci`, `swift test --package-path ios/Packages/MewtPhotosCore`. Ubuntu 24.04 runner image ships Swift 6.3.x [DOC: runner-images release notes], so no install step.
+  - `ios-build.yml` (macOS, `workflow_dispatch` + tag only, `concurrency: cancel-in-progress`, SPM cache via `actions/cache`): `brew install xcodegen`, `xcodegen generate`, `xcodebuild -project ios/MewtPhotos.xcodeproj -scheme MewtPhotos -sdk iphoneos -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build`, then `mkdir Payload && cp -R build/Build/Products/Release-iphoneos/MewtPhotos.app Payload/ && zip -r MewtPhotos.ipa Payload`, upload as artifact. AltStore re-signs it with the free Apple ID [DOC: community-reported unsigned-IPA + AltStore flow; **[SPIKE]** first build proves it]. Pick the runner image explicitly (`macos-26` with Xcode 26.x, or `macos-15`) and pin Xcode via `xcode-select`/`maxim-lobanov/setup-xcode` rather than relying on `macos-latest` [DOC: `macos-latest` migration to macOS 26 was announced for mid-2026, unconfirmed]. Unsigned builds can pick an older SDK than signed ones [DOC: Apple forum]; verify the built `.app` runs on iOS 18+ in the spike.
   - Information per macOS build must be maximised: each spike build is a **Diagnostics build** with many independent probes (below).
 - Compile-error risk in the app target is the expensive failure (a 10x-minute iteration to learn about a typo). Mitigations: keep the target thin; Core carries the logic; use Swift 5 language mode + warnings in the app target; write adapter code against the documented signatures only; read each adapter file twice before pushing; consider a one-time review by running the same file through `swiftc -parse` in WSL2 (syntax only, catches typos for free).
 
@@ -353,7 +353,7 @@ Dependencies for Linux-buildable Core: GRDB (needs system SQLite: `apt-get insta
 
 | # | Phase | Contents | Needs macOS CI? | Depends on |
 |---|-------|----------|-----------------|------------|
-| 0 | **Foundations (Windows/Linux only)** | Create private GitHub repo; commit existing project; `server.yml`; Swift toolchain in WSL2; `ios/Packages/PhotoSyncCore` skeleton + `Wire` types + fixtures + `tests/wire-fixtures.test.ts` + `tests/contract/serve.ts`; `ios-core.yml` green with one contract test (pair + status). | No | - |
+| 0 | **Foundations (Windows/Linux only)** | Create private GitHub repo; commit existing project; `server.yml`; Swift toolchain in WSL2; `ios/Packages/MewtPhotosCore` skeleton + `Wire` types + fixtures + `tests/wire-fixtures.test.ts` + `tests/contract/serve.ts`; `ios-core.yml` green with one contract test (pair + status). | No | - |
 | 1 | **Spike build A: toolchain + LAN** (in parallel with phase 0 tail) | XcodeGen project, `ios-build.yml`, unsigned `.ipa` -> AltStore install; app shows `GET /health`, pairing via manual URL+code (QR later), `/status`; RunLog + ShareLink export; Info.plist keys (local network, ATS). **Pass:** app launches on iOS 18, plain-HTTP call reaches the PC, log export works. | **Yes (1-3 builds)** | 0 |
 | 2 | **Spike build B: PhotoKit reality** (Diagnostics screen, one build, many probes) | (a) full-access authorisation; enumerate count + timing with/without resources on the real library (decides change token); (b) resource dump for sample assets (types, filenames, UTIs, edited/Live/RAW/iCloud); (c) export photo, Live Photo pair, video, iCloud-only item: bytes are originals (magic bytes, size vs expectation), speed, iCloud progress/failure error codes; (d) upload the exported files with the real Core uploader at 8 vs 32 MiB chunk, 1 vs 2 workers, MB/s reported; (e) behaviour on screen lock with `isIdleTimerDisabled`. **Pass/fail criteria decide the project** (original bytes; usable video throughput; iCloud download works). | **Yes (1-3 builds)** | 1 |
 | 3 | **Server additions S1, S2, S4 (+S5)** + vitest + docs/api.md | Pure Windows work; runs in parallel with 1-2. | No | 0 |
@@ -468,7 +468,7 @@ func next(_ s: UploadState, _ e: UploadEvent) -> (UploadState, UploadAction)   /
 
 ## Sources
 
-- `C:/codes/claude/photosync/server/app.ts`, `server/engine.ts`, `server/security.ts`, `server/metadata.ts`, `server/db.ts`, `shared/schemas.ts`, `tests/helpers.ts`, `.planning/codebase/CONCERNS.md`, `docs/api.md`, `docs/ROADMAP_IOS_COMPANION.md`: HIGH (read directly).
+- `C:/codes/claude/mewtphotos/server/app.ts`, `server/engine.ts`, `server/security.ts`, `server/metadata.ts`, `server/db.ts`, `shared/schemas.ts`, `tests/helpers.ts`, `.planning/codebase/CONCERNS.md`, `docs/api.md`, `docs/ROADMAP_IOS_COMPANION.md`: HIGH (read directly).
 - GitHub Actions billing: https://docs.github.com/en/billing/concepts/product-billing/github-actions (2,000 free min/month on private repos; per-minute rates Linux $0.006 vs macOS $0.062; public repos free): MEDIUM-HIGH.
 - Runner images (Ubuntu 24.04 ships Swift 6.3.x; macOS 26 / Xcode 26.x images; macOS 14 image retiring): https://newreleases.io/project/github/actions/runner-images/release/ubuntu24%2F20260705.232 , https://github.blog/changelog/2025-09-11-actions-macos-26-image-now-in-public-preview/ , https://github.com/actions/runner-images/issues/13008 : MEDIUM.
 - Unsigned IPA build flags and AltStore flow: https://git.tdem.in/MrKai77/Export-unsigned-ipa-files , https://dev.to/samay15jan/breaking-into-apples-walled-garden-almost-4a8m , https://developer.apple.com/forums/thread/795881 : LOW-MEDIUM (community; proven only by the first spike build).
@@ -478,5 +478,5 @@ func next(_ s: UploadState, _ e: UploadEvent) -> (UploadState, UploadAction)   /
 - Swift toolchains for Ubuntu 24.04 / Windows: https://linuxcapable.com/how-to-install-swift-on-ubuntu-linux/ , https://learn.arm.com/install-guides/swift/ : MEDIUM (WSL2 use is an inference).
 
 ---
-*Architecture research for: native iPhone photo-backup client integrating with the existing PhotoSync Windows server*
+*Architecture research for: native iPhone photo-backup client integrating with the existing Mewt Photos Windows server*
 *Researched: 2026-10-11*

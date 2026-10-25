@@ -58,7 +58,7 @@ jobs:
       - name: Info.plist gate
         if: hashFiles('ios/scripts/check_info_plist.py') != ''
         shell: bash
-        run: python3 ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist
+        run: python3 ios/scripts/check_info_plist.py ios/MewtPhotos/Info.plist
 
       - name: Info.plist gate self-test
         if: hashFiles('ios/scripts/check_info_plist.py') != ''
@@ -76,29 +76,29 @@ jobs:
             echo "ios/project.yml mentions entitlements, extensions or capabilities"; exit 1
           fi
           # Photos is imported only by the read-only screens: the diagnostics (Phase 2) and the library check (Phase 4).
-          if grep -rEq --exclude=DiagnosticsView.swift --exclude=LibraryView.swift --exclude=BackupEngine.swift '^[[:space:]]*import[[:space:]]+(Photos|PhotosUI)\b' ios/PhotoSync ios/Packages/PhotoSyncCore/Sources 2>/dev/null; then
+          if grep -rEq --exclude=DiagnosticsView.swift --exclude=LibraryView.swift --exclude=BackupEngine.swift '^[[:space:]]*import[[:space:]]+(Photos|PhotosUI)\b' ios/MewtPhotos ios/Packages/MewtPhotosCore/Sources 2>/dev/null; then
             echo "Photos/PhotosUI is imported outside DiagnosticsView.swift and LibraryView.swift"; exit 1
           fi
 
       - name: Add Swift to PATH
-        if: hashFiles('ios/Packages/PhotoSyncCore/Package.swift') != '' || hashFiles('ios/PhotoSync/*.swift') != ''
+        if: hashFiles('ios/Packages/MewtPhotosCore/Package.swift') != '' || hashFiles('ios/MewtPhotos/*.swift') != ''
         shell: bash
         run: |
           command -v swift >/dev/null 2>&1 || echo /usr/share/swift/usr/bin >> "$GITHUB_PATH"
 
       - name: Parse app sources
-        if: hashFiles('ios/PhotoSync/*.swift') != ''
+        if: hashFiles('ios/MewtPhotos/*.swift') != ''
         shell: bash
-        run: swiftc -parse ios/PhotoSync/*.swift
+        run: swiftc -parse ios/MewtPhotos/*.swift
 
       - name: Start the real server
-        if: hashFiles('ios/Packages/PhotoSyncCore/Package.swift') != ''
+        if: hashFiles('ios/Packages/MewtPhotosCore/Package.swift') != ''
         shell: bash
         run: |
           # Port 18787 and a per-run data dir keep this server away from any real instance.
-          # PHOTOSYNC_HOST stays unset: setting it makes the server bind the same address twice.
+          # MEWTPHOTOS_HOST stays unset: setting it makes the server bind the same address twice.
           mkdir -p "$RUNNER_TEMP/ps-data"
-          PHOTOSYNC_PORT=18787 PHOTOSYNC_DATA_DIR="$RUNNER_TEMP/ps-data" \
+          MEWTPHOTOS_PORT=18787 MEWTPHOTOS_DATA_DIR="$RUNNER_TEMP/ps-data" \
             nohup node --disable-warning=ExperimentalWarning server/main.ts > "$RUNNER_TEMP/server.out" 2>&1 &
           for i in $(seq 1 60); do
             curl -sf http://127.0.0.1:18787/api/v1/health >/dev/null && exit 0
@@ -108,11 +108,11 @@ jobs:
           exit 1
 
       - name: swift test (unit + contract)
-        if: hashFiles('ios/Packages/PhotoSyncCore/Package.swift') != ''
-        working-directory: ios/Packages/PhotoSyncCore
+        if: hashFiles('ios/Packages/MewtPhotosCore/Package.swift') != ''
+        working-directory: ios/Packages/MewtPhotosCore
         shell: bash
         env:
-          PHOTOSYNC_CONTRACT_URL: http://127.0.0.1:18787
+          MEWTPHOTOS_CONTRACT_URL: http://127.0.0.1:18787
         run: |
           # Run once: the contract suite sends one wrong-code pairing request and the server
           # throttles at 8 per 5 minutes per source address.
@@ -122,7 +122,7 @@ jobs:
             || { echo "swift test discovered no tests"; exit 1; }
 
       - name: Contract suite reached the server
-        if: hashFiles('ios/Packages/PhotoSyncCore/Package.swift') != ''
+        if: hashFiles('ios/Packages/MewtPhotosCore/Package.swift') != ''
         shell: bash
         run: |
           # The server is the independent witness that the tests really paired against it.

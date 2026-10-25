@@ -98,7 +98,7 @@ Do not promise automatic, continuous, or scheduled-to-the-minute backups.
 
 ## 7. Local pairing and security
 
-- **Discovery:** the server would advertise `_photosync._tcp` via Bonjour; the app browses with
+- **Discovery:** the server would advertise `_mewtphotos._tcp` via Bonjour; the app browses with
   `NWBrowser`. Requires `NSLocalNetworkUsageDescription` and `NSBonjourServices` in Info.plist.
   On Windows, advertising needs an mDNS responder: either a pure-JS library inside the server or the
   existing Bonjour service used **read-only through its API**. The existing Bonjour installation must

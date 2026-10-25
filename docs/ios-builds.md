@@ -1,7 +1,7 @@
 # iOS build log
 
-One row per iOS build. The build number is the `ios-build` workflow run number, and the install file is the `PhotoSync-ipa`
-artifact of that run (also copied to iCloud Drive as `PhotoSync\PhotoSync.ipa`). The phase gates in `.planning/phases/`
+One row per iOS build. The build number is the `ios-build` workflow run number, and the install file is the `MewtPhotos-ipa`
+artifact of that run (also copied to iCloud Drive as `MewtPhotos\MewtPhotos.ipa`). The phase gates in `.planning/phases/`
 record what passed on the phone; this log only says which build contains which change.
 
 | Build | Commit | Date | What it contains | Device result |
@@ -21,3 +21,4 @@ record what passed on the phone; this log only says which build contains which c
 | 33 | `9b5adac` | 2026-10-13 | A run stops only in the background, not for Control Center | Pass: Control Center no longer stops the run |
 | 34 | `728ffb1` | 2026-10-13 | Coverage section: what the PC is missing (Phase 7) | Pass: "Coverage verified" on 4,083 of 4,083 |
 | 35 | `c272a40` | 2026-10-13 | Continuing an unfinished run picks up photos taken since it started | Pass (2026-10-26): continuing the unfinished run picked up the new photo; all four expected conditions met |
+| next | not built yet | 2026-10-26 | Interface redesign (Phase 8): shared theme, dark card layout on every screen, new app icon (`ios/art/icon.svg`), name shown as Mewt Photos; no logic changes | Not tested on device |

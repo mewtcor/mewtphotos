@@ -8,7 +8,7 @@ Build 14 (commit `3be0796`, run `38248942719`) and build 15 (commit `c14c3bd`, r
 | Save a wrong address | 14 | Error shown; old pairing kept |
 | Save the correct address | 14 | Saved, no error |
 | Save the correct address shows "Address saved." | 15 | Pass |
-| Photo access message with full access | 14 | Pass: "PhotoSync can read your whole library." |
+| Photo access message with full access | 14 | Pass: "Mewt Photos can read your whole library." |
 | Count of items not on the PC | 14 | Pass: 4063 of 4063 (nothing sent yet, so all are not on the PC) |
 | Limited access: warning shown, no count | 15 | Pass |
 | Denied access: guidance and Open Settings | 15 | Pass |

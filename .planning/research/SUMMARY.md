@@ -1,15 +1,15 @@
 # Project Research Summary
 
-**Project:** PhotoSync iOS companion (native iPhone client for the existing Windows/Node backup server)
+**Project:** Mewt Photos iOS companion (native iPhone client for the existing Windows/Node backup server)
 **Domain:** Native iPhone photo-backup client (SwiftUI, PhotoKit, URLSession), one-way and additive, LAN only, foreground only, built on GitHub Actions and sideloaded with AltStore
 **Researched:** 2026-10-11
 **Confidence:** MEDIUM
 
 ## Executive Summary
 
-PhotoSync adds a native iOS app to a server that already works. The app enumerates the whole library, exports each resource as stored original bytes via `PHAssetResourceManager.writeData`, skips what the PC already holds, and uploads the rest over the existing resumable `/api/v1` protocol. The server is the source of truth: `/assets/check` and `sha256` on create say what is already stored, so local state is only a cache plus a failure list. Experts building this class of tool take whole-library scope, read resources rather than renders, and let the server decide what counts as backed up.
+Mewt Photos adds a native iOS app to a server that already works. The app enumerates the whole library, exports each resource as stored original bytes via `PHAssetResourceManager.writeData`, skips what the PC already holds, and uploads the rest over the existing resumable `/api/v1` protocol. The server is the source of truth: `/assets/check` and `sha256` on create say what is already stored, so local state is only a cache plus a failure list. Experts building this class of tool take whole-library scope, read resources rather than renders, and let the server decide what counts as backed up.
 
-Recommended approach: a thin Apple-only app target over a pure Swift package (`PhotoSyncCore`) that builds and tests on Linux at low CI cost. Logic (state machine, retry rules, planner, naming, reconciliation) lives in Core behind protocols. XcodeGen generates the project (no committed `.xcodeproj`); an unsigned `.ipa` is built with `xcodebuild` on a pinned `macos-26` runner; zero third-party Swift packages in v1; persistence is small JSON files. Build spikes first: prove toolchain, install path, LAN HTTP and original bytes on the real iPhone before features. There is no Mac, no debugger, and about 200 macOS minutes a month on a private repo, so blind compile errors are expensive.
+Recommended approach: a thin Apple-only app target over a pure Swift package (`MewtPhotosCore`) that builds and tests on Linux at low CI cost. Logic (state machine, retry rules, planner, naming, reconciliation) lives in Core behind protocols. XcodeGen generates the project (no committed `.xcodeproj`); an unsigned `.ipa` is built with `xcodebuild` on a pinned `macos-26` runner; zero third-party Swift packages in v1; persistence is small JSON files. Build spikes first: prove toolchain, install path, LAN HTTP and original bytes on the real iPhone before features. There is no Mac, no debugger, and about 200 macOS minutes a month on a private repo, so blind compile errors are expensive.
 
 Key risks: false "backed up" results; partial library shown as complete (limited access, default fetch options); iCloud-only items stalling; AltStore free-account limits (7-day expiry, 3 active apps, 10 App IDs per week) and identity churn; known server bugs the native client will trigger (`finalizing` stuck until restart, `/assets/check` trusting the DB, 507 disk-full, auto-stop during device-side work). Each has a roadmap mitigation. Largest unknown: video throughput (Safari about 0.5 MB/s for video vs about 3.5 MB/s for photos; cause not established).
 
@@ -31,7 +31,7 @@ Trust rule: an item is shown as backed up only when the server returned `verifie
 - **Anti-features:** delete or free-up after backup; propagate phone deletions; album pickers; format options (HEIC to JPEG, Motion-Photo JPEG); compression; RAW-vs-JPEG choice; shared-album or Recently Deleted items; gallery UI; manual picker; "select more photos" flow; parallel uploads; auto-run on launch; local-only "backed up" flags.
 
 ### Architecture Approach
-`PhotoSyncCore` (local Swift package, Swift 6 mode, builds on Linux) holds all logic. The app target only adapts Apple APIs to protocols. Only `Sendable` value types cross actors; `PHAsset`/`PHAssetResource` never leave the adapter.
+`MewtPhotosCore` (local Swift package, Swift 6 mode, builds on Linux) holds all logic. The app target only adapts Apple APIs to protocols. Only `Sendable` value types cross actors; `PHAsset`/`PHAssetResource` never leave the adapter.
 1. **`BackupCoordinator` (actor):** scan, plan, create session, upload loop, complete, reconcile; throttled `RunSnapshot` stream.
 2. **`PhotoLibraryProviding` / `PhotoKitLibrary`:** enumerates `AssetDescriptor` values with resource descriptors.
 3. **`Planner` and `ResourceNaming` (pure):** skip, check, or export+upload per resource; keys, upload names, ordering.
@@ -53,7 +53,7 @@ Trust rule: an item is shown as backed up only when the server returned `verifie
 ## Implications for Roadmap
 
 ### Phase 0: Foundations (Windows/Linux only)
-- **Delivers:** private repo with existing project; `server.yml`; `PhotoSyncCore` skeleton with Wire types; fixtures from real server; `tests/contract/serve.ts`; `tests/wire-fixtures.test.ts`; Linux `swift test` green with one contract test.
+- **Delivers:** private repo with existing project; `server.yml`; `MewtPhotosCore` skeleton with Wire types; fixtures from real server; `tests/contract/serve.ts`; `tests/wire-fixtures.test.ts`; Linux `swift test` green with one contract test.
 - **Avoids:** Pitfall 1. **Flag:** Light. Confirm Linux Swift toolchain and WSL2; confirm no GRDB needed.
 
 ### Phase 1: Spike A, toolchain, install, LAN, Keychain (first macOS builds)
@@ -123,7 +123,7 @@ Trust rule: an item is shown as backed up only when the server returned `verifie
 
 ### 4. Swift language mode
 - **A (STACK, PITFALLS):** Swift 5 everywhere.
-- **B (ARCHITECTURE):** Swift 6 for `PhotoSyncCore` (Linux-verified); Swift 5 with complete-check warnings for app target.
+- **B (ARCHITECTURE):** Swift 6 for `MewtPhotosCore` (Linux-verified); Swift 5 with complete-check warnings for app target.
 - **Resolution:** B. The risk is macOS compile cost; Core errors are cheap on Linux. App target stays Swift 5. Set `SWIFT_VERSION` per target.
 
 ### 5. PHPersistentChangeToken in v1
@@ -203,7 +203,7 @@ Trust rule: an item is shown as backed up only when the server returned `verifie
 
 **Primary (HIGH):** repository files read directly (`server/app.ts`, `server/engine.ts`, `server/security.ts`, `server/metadata.ts`, `server/db.ts`, `shared/schemas.ts`, `tests/helpers.ts`, `.planning/codebase/CONCERNS.md`, `docs/api.md`, `docs/ROADMAP_IOS_COMPANION.md`, `.planning/PROJECT.md`); GitHub runner-images README; GitHub Actions billing docs; AltStore FAQ; Apple membership comparison; Apple PhotoKit documentation; XcodeGen releases; GRDB.swift releases.
 
-**Secondary (MEDIUM):** Apple Developer Forums on ATS, Local Network, PHAssetResource and iCloud (threads 747421, 788044, 66417, 66477, 833066, 813354, 662053, 771373); Immich docs and issues; PhotoSync release notes; Synology KB; Ente FAQ; Nextcloud forum threads; unsigned-archive flags (forum thread 109122).
+**Secondary (MEDIUM):** Apple Developer Forums on ATS, Local Network, PHAssetResource and iCloud (threads 747421, 788044, 66417, 66477, 833066, 813354, 662053, 771373); Immich docs and issues; Mewt Photos release notes; Synology KB; Ente FAQ; Nextcloud forum threads; unsigned-archive flags (forum thread 109122).
 
 **Tertiary (LOW, validate in spikes):** free-account entitlements; mobileprovision expiry read; `fileSize` KVC; Hidden-album exposure; network-required PhotosError code; change-token expiry; Swift on Windows practicality.
 

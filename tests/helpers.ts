@@ -25,7 +25,7 @@ export interface TestServer extends BuiltApp {
 }
 
 export async function startServer(settings: Partial<Settings> = {}, options: Partial<AppOptions> = {}, reuse?: { root: string; db: Db; token: string }): Promise<TestServer> {
-  const root = reuse?.root ?? (await mkdtemp(path.join(os.tmpdir(), 'photosync-test-')));
+  const root = reuse?.root ?? (await mkdtemp(path.join(os.tmpdir(), 'mewtphotos-test-')));
   const dest = path.join(root, 'backup');
   const db = reuse?.db ?? openDb(path.join(root, 'test.db'));
   if (!reuse) {

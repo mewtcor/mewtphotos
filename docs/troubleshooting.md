@@ -1,7 +1,7 @@
 # Troubleshooting
 
 The dashboard's **Log** and **Failed uploads** sections show the reason for most problems.
-The full log is `%LOCALAPPDATA%\PhotoSync\server.log`.
+The full log is `%LOCALAPPDATA%\MewtPhotos\server.log`.
 
 ## The iPhone cannot open the page
 
@@ -78,6 +78,6 @@ iPhone actually delivers.
 
 ## Starting over
 
-Stop the app and delete `%LOCALAPPDATA%\PhotoSync`. Your photos in the backup folder are untouched,
+Stop the app and delete `%LOCALAPPDATA%\MewtPhotos`. Your photos in the backup folder are untouched,
 but hashes, history and pairings are gone, and previously backed-up photos will be stored again
 (under collision-safe names only if their content differs; identical files are adopted, not duplicated).

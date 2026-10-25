@@ -1,4 +1,4 @@
-# Requirements: PhotoSync
+# Requirements: Mewt Photos
 
 **Defined:** 2026-10-11
 **Core Value:** Every photo and video on the iPhone reaches the PC as its untouched original — including both halves of Live Photos — and nothing is ever reported as backed up unless the PC has verified it.

@@ -7,7 +7,7 @@ web/dist/
 build/
 Payload/
 *.ipa
-ios/PhotoSync.xcodeproj/
+ios/MewtPhotos.xcodeproj/
 DerivedData/
 .DS_Store
 .ci-tmp/

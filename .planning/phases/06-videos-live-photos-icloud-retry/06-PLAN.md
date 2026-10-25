@@ -13,7 +13,7 @@ Starting point (Phase 5 closed as go on 2026-10-13):
 - The background transfer resumes from the PC's offset (`beginUpload` returns `offset`), so UP-03 needs the app to
   ask for the offset after a restart, not to start again.
 
-Rule for every plan: logic goes in `PhotoSyncCore` and is tested on Linux; the app target only adapts PhotoKit,
+Rule for every plan: logic goes in `MewtPhotosCore` and is tested on Linux; the app target only adapts PhotoKit,
 the screen and the background transfer. Every plan ends with one device test on the real iPhone (the build is
 dispatched by the owner's go-ahead).
 

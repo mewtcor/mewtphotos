@@ -7,7 +7,7 @@ yet") and are never counted as backed up (Success criterion 5).
 Requirements: ORIG-01, ORIG-04, ORIG-05, UP-01, UP-02, UP-04, UP-05, UP-06, UP-07, UP-08, UP-09, REP-01, REP-02,
 REP-03, REP-05, REP-06, REP-07. UP-03 and REP-04 are Phase 6.
 
-Rule for every plan: logic goes in `PhotoSyncCore` and is tested on Linux; the app target only adapts PhotoKit,
+Rule for every plan: logic goes in `MewtPhotosCore` and is tested on Linux; the app target only adapts PhotoKit,
 the screen and the background transfer.
 
 ## Plan 05-01: the planner and the totals (REP-02, UP-01, ORIG-04, REP-07)

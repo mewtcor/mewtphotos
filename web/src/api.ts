@@ -15,7 +15,7 @@ export class ApiError extends Error {
 /** The request never got an HTTP answer (Wi-Fi drop, server stopped, iOS suspended the page). */
 export class NetworkError extends Error {}
 
-const TOKEN_KEY = 'photosync.deviceToken';
+const TOKEN_KEY = 'mewtphotos.deviceToken';
 export const deviceToken = {
   get: (): string | null => localStorage.getItem(TOKEN_KEY),
   set: (value: string) => localStorage.setItem(TOKEN_KEY, value),

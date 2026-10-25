@@ -1,5 +1,5 @@
 {
-  "name": "photosync",
+  "name": "mewtphotos",
   "version": "0.1.0",
   "description": "Wireless iPhone photo backup to a Windows PC over local Wi-Fi",
   "private": true,

@@ -21,8 +21,8 @@ REQUIRED_TEXT = (
 )
 REQUIRED_TRUE = ("UIFileSharingEnabled", "LSSupportsOpeningDocumentsInPlace")
 ASCII_NAMES = ("CFBundleName", "CFBundleDisplayName")  # AltStore error 3009 on non-ASCII names
-BUILT_TEXT = ("CFBundleIdentifier", "CFBundleShortVersionString", "PhotoSyncGitSHA")
-SOURCE_PLIST = Path(__file__).resolve().parent.parent / "PhotoSync" / "Info.plist"
+BUILT_TEXT = ("CFBundleIdentifier", "CFBundleShortVersionString", "MewtPhotosGitSHA")
+SOURCE_PLIST = Path(__file__).resolve().parent.parent / "MewtPhotos" / "Info.plist"
 
 
 def read_plist(path):
@@ -148,14 +148,14 @@ def self_test():
         fails_naming(p, key, "%s removed" % key)
     for key in ASCII_NAMES:
         p = copy.deepcopy(base)
-        p[key] = "PhotoSyncé"
+        p[key] = "MewtPhotosé"
         fails_naming(p, key, "%s non-ASCII" % key)
 
     # --built: the source plist keeps its $(...) placeholders, so it must fail; a substituted copy must pass.
     fails_naming(base, "CFBundleIdentifier", "unsubstituted source plist in --built mode", built=True)
     built = copy.deepcopy(base)
-    built.update({"CFBundleIdentifier": "com.example.photosync", "CFBundleShortVersionString": "0.1.0",
-                  "PhotoSyncGitSHA": "abc1234", "CFBundleVersion": "7"})
+    built.update({"CFBundleIdentifier": "com.example.mewtphotos", "CFBundleShortVersionString": "0.1.0",
+                  "MewtPhotosGitSHA": "abc1234", "CFBundleVersion": "7"})
     expect(check(built, True) == [], "substituted plist must pass --built: %s" % check(built, True))
     built["CFBundleVersion"] = "0"
     fails_naming(built, "CFBundleVersion", "CFBundleVersion 0 in --built mode", built=True)
@@ -186,7 +186,7 @@ def self_test():
         rc, _ = run_main([])
         expect(rc == 2, "no path is a usage error")
         with zipfile.ZipFile(d / "app.ipa", "w") as z:
-            z.writestr("Payload/PhotoSync.app/Info.plist", plistlib.dumps(base))
+            z.writestr("Payload/MewtPhotos.app/Info.plist", plistlib.dumps(base))
         rc, _ = run_main([str(d / "app.ipa")])
         expect(rc == 0, "an .ipa is read from Payload/*.app/Info.plist")
         with zipfile.ZipFile(d / "empty.ipa", "w") as z:

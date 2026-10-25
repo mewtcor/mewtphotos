@@ -61,7 +61,7 @@ is not a design-system inventory.
 
 ## Screen Layout
 
-One `NavigationStack` containing one `Form` (inset grouped list). Navigation title "PhotoSync",
+One `NavigationStack` containing one `Form` (inset grouped list). Navigation title "Mewt Photos",
 `.navigationBarTitleDisplayMode(.inline)`. No tab bar, no toolbar items, no sheets of our own.
 
 Section order, top to bottom (all content scrolls; nothing is pinned):
@@ -146,7 +146,7 @@ Behaviour:
 
 - Row 1: one `Text`, body: "Version " + marketing version + " (build " + build number + ")".
   Example: `Version 0.1.0 (build 12)`.
-- Row 2: one `Text`, body, `.monospaced()`: "Commit " + `PhotoSyncGitSHA` exactly as read from
+- Row 2: one `Text`, body, `.monospaced()`: "Commit " + `MewtPhotosGitSHA` exactly as read from
   Info.plist (no shortening in the view; CI decides the length; local builds show `dev`).
   `.textSelection(.enabled)` so the SHA can be copied.
 - Missing plist values render as `unknown` rather than an empty string.
@@ -186,7 +186,7 @@ content size; line height is the system's for that style (do not set `.lineSpaci
 |------|-------|------|--------|-------------|----------|
 | Status | `.title3` | 20pt | regular (400) | system, about 1.25 | Status row text |
 | Body | `.body` | 17pt | regular (400) | system, about 1.3 | Field text and prompts, error text, About lines, Export log label |
-| Emphasis | `.body` | 17pt | semibold (600) | system, about 1.3 | Pair button label (system prominent button), inline navigation title "PhotoSync" |
+| Emphasis | `.body` | 17pt | semibold (600) | system, about 1.3 | Pair button label (system prominent button), inline navigation title "Mewt Photos" |
 | Footnote | `.footnote` | 13pt | regular (400) | system, about 1.4 | Section headers and footers (system `Form` styling, uppercased headers are the system default) |
 
 Declared sizes: 3 (20, 17, 13). Declared weights: 2 (regular 400, semibold 600). No bold, no
@@ -242,16 +242,16 @@ literally by Plan 01-04 / 01-06 acceptance criteria and the device checklist; do
 
 | Element | Copy |
 |---------|------|
-| Navigation title | PhotoSync |
+| Navigation title | Mewt Photos |
 | Primary CTA | Pair (verbatim). One word is kept on purpose: Plan 01-04 and the device checklist require the literal label, and the section header "Pair with your PC" directly above supplies the noun. |
 | Section headers | "Pair with your PC", "Log", "About" |
 | Address field | Title "PC address"; prompt "192.168.1.20:8787" |
 | Code field | Title "Pairing code"; prompt "8-character code" |
 | Pair section footer, paragraph 1 | "Type the address and pairing code shown on the PC dashboard. The code works once." |
-| Pair section footer, paragraph 2 (Local Network hint, verbatim) | "If iOS asks to let PhotoSync find devices on your local network, tap Allow, then press Pair again." The footer sits directly beneath the Pair button and error row, which is what Plan 01-04 Task 3 means by "under the Pair button". |
-| iOS Local Network permission dialog (`NSLocalNetworkUsageDescription` in `ios/PhotoSync/Info.plist`) | "PhotoSync connects to your PC on this Wi-Fi network." (user decision 2026-10-12). Replaces the current "...to back up your photos." for Phase 1; applied when Plan 01-04 runs. `ios/scripts/check_info_plist.py` only requires a non-empty value, so the gate still passes. |
+| Pair section footer, paragraph 2 (Local Network hint, verbatim) | "If iOS asks to let Mewt Photos find devices on your local network, tap Allow, then press Pair again." The footer sits directly beneath the Pair button and error row, which is what Plan 01-04 Task 3 means by "under the Pair button". |
+| iOS Local Network permission dialog (`NSLocalNetworkUsageDescription` in `ios/MewtPhotos/Info.plist`) | "Mewt Photos connects to your PC on this Wi-Fi network." (user decision 2026-10-12). Replaces the current "...to back up your photos." for Phase 1; applied when Plan 01-04 runs. `ios/scripts/check_info_plist.py` only requires a non-empty value, so the gate still passes. |
 | Export control | "Export log" (verbatim) |
-| Log footer | "The same file is in Files under On My iPhone, then PhotoSync." |
+| Log footer | "The same file is in Files under On My iPhone, then MewtPhotos." |
 | Version line | "Version 0.1.0 (build 12)" pattern: "Version " + marketing version + " (build " + build + ")" (verbatim pattern) |
 | Commit line | "Commit " + git SHA |
 | Empty state heading | "Not paired yet" (verbatim; this is the status text when nothing is stored) |
@@ -316,7 +316,7 @@ Empty-state and error-state copy lives in the Copywriting Contract; rows below r
 | E7 | Log section footer | long-text | ✅ resolved | The footer is never truncated |
 | E8 | About rows | overflow | ✅ resolved | The Version and Commit lines wrap; a full-length SHA is never clipped |
 | E8 | About rows | long-text | ✅ resolved | The commit SHA is shown exactly as read from Info.plist, wraps if long, and a missing value prints `unknown` |
-| E9 | Navigation title | overflow | ➖ dismissed | The title is the fixed nine-letter string "PhotoSync" in an inline bar |
+| E9 | Navigation title | overflow | ➖ dismissed | The title is the fixed nine-letter string "Mewt Photos" in an inline bar |
 | E9 | Navigation title | long-text | ➖ dismissed | Same fixed string; never dynamic |
 | X1 | Status row | truthfulness | ✅ resolved | A stored pairing is never drawn as success; the green check and "Connected to" appear only after `checkConnection()` returned `.reachable` |
 | X2 | Whole screen | single PC | ✅ resolved | Exactly one PC is ever shown; pairing again replaces it; no list of PCs or devices exists in Phase 1 |
@@ -358,7 +358,7 @@ Empty-state and error-state copy lives in the Copywriting Contract; rows below r
 
 ## Assumptions (made in place of user answers, change any of them)
 
-1. Single screen with a `NavigationStack` and inline title "PhotoSync", rather than a bare `Form`.
+1. Single screen with a `NavigationStack` and inline title "Mewt Photos", rather than a bare `Form`.
 2. The Pair form stays visible after pairing succeeds (no separate "paired" screen). Needed anyway for repair states; it avoids a second layout.
 3. Pair button is a full-width prominent (filled) button, not a plain text-style `Form` row button.
 4. Status text is `.title3` regular so long unreachable/repair messages stay readable; semibold is reserved for the Pair button and the system title.
@@ -373,7 +373,7 @@ Empty-state and error-state copy lives in the Copywriting Contract; rows below r
 
 Observations for the planner (not changed here, not in this spec's scope):
 
-- DECIDED 2026-10-12 (reword, see Copywriting Contract). `ios/PhotoSync/Info.plist` `NSLocalNetworkUsageDescription` reads "PhotoSync connects to your PC on this Wi-Fi network to back up your photos." That system dialog is shown on the first Pair in Phase 1, when nothing is backed up yet, and it is outside the Swift-source word grep. It slightly conflicts with the Phase 1 "connection is not a backup" rule. Consider "PhotoSync connects to your PC on this Wi-Fi network." (the Info.plist gate only needs the key to be non-empty; confirm against `ios/scripts/check_info_plist.py` before editing). `NSPhotoLibraryUsageDescription` and `NSCameraUsageDescription` are never triggered in Phase 1.
+- DECIDED 2026-10-12 (reword, see Copywriting Contract). `ios/MewtPhotos/Info.plist` `NSLocalNetworkUsageDescription` reads "Mewt Photos connects to your PC on this Wi-Fi network to back up your photos." That system dialog is shown on the first Pair in Phase 1, when nothing is backed up yet, and it is outside the Swift-source word grep. It slightly conflicts with the Phase 1 "connection is not a backup" rule. Consider "Mewt Photos connects to your PC on this Wi-Fi network." (the Info.plist gate only needs the key to be non-empty; confirm against `ios/scripts/check_info_plist.py` before editing). `NSPhotoLibraryUsageDescription` and `NSCameraUsageDescription` are never triggered in Phase 1.
 - Plan 01-04 acceptance criteria require the literal `"Cannot reach your PC right now. "` (with trailing space) inside `AppModel.swift`, so the status stays one string per state. This spec therefore does NOT split status into title and detail.
 
 ---

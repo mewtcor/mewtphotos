@@ -1,4 +1,4 @@
-# iPhone Photo Backup (PhotoSync)
+# iPhone Photo Backup (Mewt Photos)
 
 Back up photos and videos from an iPhone to a Windows 11 PC over your own Wi-Fi.
 No cloud, no account, no subscription. Nothing is ever deleted from the iPhone.
@@ -70,7 +70,7 @@ iPhone (Safari / Shortcut)                Windows PC
   pick files ──HTTP on Wi-Fi──►  server/app.ts      routes, pairing, access rules
                                  server/engine.ts   receive → hash → dedupe → place → commit
                                  server/verify.ts   re-hash stored files on demand
-                                 SQLite database    %LOCALAPPDATA%\PhotoSync\photosync.db
+                                 SQLite database    %LOCALAPPDATA%\MewtPhotos\mewtphotos.db
                                  backup folder      Pictures\iPhone Backup\YYYY\MM\...
 ```
 
@@ -106,7 +106,7 @@ Same name, different content → `IMG_0001 (2).HEIC`. Existing files are never o
 | SHA-256 implemented in JS for the phone page | Safari disables `crypto.subtle` on `http://` pages, and it cannot hash a multi-GB file in pieces anyway. Verified against `node:crypto`. |
 | Plain HTTP, not HTTPS | A self-signed certificate must be manually trusted on iOS and breaks QR-scan simplicity. The trade-off: traffic and the device key are readable by others on the same Wi-Fi. Use a network you trust. |
 | Dashboard has no login; it answers only to `127.0.0.1` | It is reachable solely from the PC itself (loopback socket and loopback `Host` header). |
-| Database outside the backup folder (`%LOCALAPPDATA%\PhotoSync`) | The backup folder contains only your photos (plus `.incoming` during transfers) and can be changed without losing history. |
+| Database outside the backup folder (`%LOCALAPPDATA%\MewtPhotos`) | The backup folder contains only your photos (plus `.incoming` during transfers) and can be changed without losing history. |
 | Server-Sent Events for live dashboard updates | One-way, built into browsers, no extra dependency. |
 | No Electron | The server exports `buildApp()`; a Tauri shell can later start it as a sidecar and load the same dashboard URL. |
 
@@ -136,5 +136,5 @@ overshoot slightly; the log file is not rotated.
 | `npm run typecheck` | Strict TypeScript check |
 | `npm run build` | Rebuild the web pages after changing `web/` |
 
-Environment variables (optional): `PHOTOSYNC_PORT`, `PHOTOSYNC_HOST` (force a specific local address),
-`PHOTOSYNC_DATA_DIR` (database and log location).
+Environment variables (optional): `MEWTPHOTOS_PORT`, `MEWTPHOTOS_HOST` (force a specific local address),
+`MEWTPHOTOS_DATA_DIR` (database and log location).
