@@ -12,3 +12,5 @@ DerivedData/
 .DS_Store
 .ci-tmp/
 .verify/
+.planning/milestone.lock
+.planning/state.json

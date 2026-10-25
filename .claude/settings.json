@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(npm test)",
+      "Bash(npm run typecheck)",
+      "Bash(node .claude/skills/verify-photosync/scripts/vs.mjs *)"
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "echo \"photosync | $(git branch --show-current) | $(git status --porcelain | wc -l | tr -d ' ') uncommitted\""
+  }
+}
