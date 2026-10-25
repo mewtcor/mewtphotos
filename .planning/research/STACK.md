@@ -240,4 +240,4 @@ No SPM, CocoaPods or Carthage dependencies in v1.
 - iOS 26 PhotoKit background upload extension notes: https://developer.apple.com/forums/thread/819034 , https://developer.apple.com/forums/thread/815316 - LOW-MEDIUM
 - Codemagic free tier (500 min macOS M2, personal accounts): https://docs.codemagic.io/billing/pricing/ - MEDIUM
 - Files-app exposure caveat on iOS 18: https://developer.apple.com/forums/thread/765329 - MEDIUM
-- Repository facts: `C:/codes/claude/mewtphotos/server/app.ts` (route list, QR URL format), `shared/schemas.ts` (`CHUNK_SIZE`).
+- Repository facts: `C:/codes/claude/photosync/server/app.ts` (route list, QR URL format), `shared/schemas.ts` (`CHUNK_SIZE`).

@@ -71,7 +71,7 @@ Recent decisions affecting current work:
 - [Roadmap]: Photos before videos. Phase 5 backs up photos; videos, Live Photos, iCloud and retry follow in Phase 6.
 - [Roadmap]: Research "Conflicts to resolve" adopted as written (JSON store, macos-26 with explicit Xcode, NSAllowsLocalNetworking only, Swift 6 core / Swift 5 app, sequential uploads, 8 MiB chunks).
 - [Phase 01]: Server vitest runs on windows-latest (engine test asserts Windows case-insensitive filenames); typecheck and guarded iOS steps stay on ubuntu-24.04
-- [Phase 01]: Repo mewtcor/mewtphotos is private with default branch main; commits on main allowed (git.allow_default_branch_commits true)
+- [Phase 01]: Repo mewtcor/photosync is private with default branch main; commits on main allowed (git.allow_default_branch_commits true)
 - [Phase 01]: Plan 02: Swift Testing works under swift test on Swift 6.4 Linux; NetworkFailure maps URLError to NSURLErrorDomain explicitly so Linux and iPhone agree
 
 ### Pending Todos

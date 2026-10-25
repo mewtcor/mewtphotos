@@ -6,7 +6,7 @@ tags: [github-actions, ci, plist, altstore, vitest, bash, python]
 
 requires: []
 provides:
-  - Private GitHub repository mewtcor/mewtphotos, default branch main, source and package-lock.json tracked
+  - Private GitHub repository mewtcor/photosync, default branch main, source and package-lock.json tracked
   - ".github/workflows/ci.yml: typecheck on ubuntu-24.04, server vitest on windows-latest, hashFiles-guarded iOS steps"
   - "scripts/ci-watch.sh: push-and-wait, dispatch, steps and log inspection modes, Mac dispatch guard, dispatch log"
   - "ios/scripts/check_info_plist.py: Info.plist gate with 31 built-in negative controls"
@@ -39,7 +39,7 @@ key-files:
 
 key-decisions:
   - "Server vitest suite runs on windows-latest, not Linux: tests/engine.test.ts asserts Windows case-insensitive filenames (contingency b)"
-  - "Repository mewtcor/mewtphotos, private, default branch main (confirmed by the user in Task 1)"
+  - "Repository mewtcor/photosync, private, default branch main (confirmed by the user in Task 1)"
   - "ci-watch.sh dispatch mode filters runs with --event workflow_dispatch so a concurrent push run cannot be mistaken for the dispatched run"
 
 requirements-completed: [BLD-01, BLD-02, BLD-03]
@@ -94,14 +94,14 @@ status: complete
 
 ## Accomplishments
 
-- Source, tests, docs and lockfile are tracked and pushed to the private repo `mewtcor/mewtphotos`; `main` is the default branch and equals local HEAD.
+- Source, tests, docs and lockfile are tracked and pushed to the private repo `mewtcor/photosync`; `main` is the default branch and equals local HEAD.
 - `ci.yml` runs on every push with no path filter. Final push run for the plan HEAD: 38166855693, success, including the two plist steps. A manual dispatch run, 38166713569, also succeeded and is recorded in `.ci-tmp/dispatches.log`.
 - `check_info_plist.py` rejects missing, empty, whitespace-only or non-text usage strings, a widened or missing ATS exception, unset file-sharing keys, non-ASCII app names and unreadable files (one ERROR line, no traceback); `--built` and `.ipa` input work.
 - Every iOS-specific step (static checks, swiftc parse, real server, swift test, contract witness) is already in `ci.yml` behind `hashFiles`, so later plans add files rather than editing YAML.
 
 ## Task Commits
 
-1. **Task 1: Workflow scope and repo name/privacy** - no commit (done by the user; `gh auth status` lists workflow, repo `mewtcor/mewtphotos` private)
+1. **Task 1: Workflow scope and repo name/privacy** - no commit (done by the user; `gh auth status` lists workflow, repo `mewtcor/photosync` private)
 2. **Task 2: Track source and publish** - `0fb321e` (feat, source tracked), `0bb36b6` (chore, .gitignore additions and .gitattributes)
 3. **Task 3: CI workflow and ci-watch.sh** - `2c3dc7d` (feat), `06d1a29` (fix, vitest to windows-latest)
 4. **Task 4: Info.plist and gate** - `34cadf8` (feat)
