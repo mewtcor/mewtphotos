@@ -23,7 +23,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-11)
 
 **Core value:** Every photo and video on the iPhone reaches the PC as its untouched original, including both halves of Live Photos, and nothing is ever reported as backed up unless the PC has verified it.
-**Current focus:** Close open gaps (retry on device, unfinished-run fix on device), then decide on iCloud-only downloads
+**Current focus:** Device gaps closed 2026-10-26 (retry, unfinished-run fix, Live Photo); next is the decision on iCloud-only downloads
 
 ## Current Position
 
@@ -76,9 +76,9 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Device-test Retry (REP-04): force a failure, then `Retry N failed` and single `Retry`; totals must match the PC.
-- Device-verify `c272a40` (unfinished run picks up photos taken since it started).
-- Re-check Live Photo IMG_8068 (both halves) on the next build.
+- ~~Device-test Retry (REP-04)~~ Done 2026-10-26: forced failures, retried, phone totals matched the PC.
+- ~~Device-verify `c272a40`~~ Done 2026-10-26: passed on the phone (unfinished run picks up photos taken since it started).
+- ~~Re-check Live Photo IMG_8068~~ Done 2026-10-26: both halves (HEIC and MOV) are in the backup folder.
 - Parked: iCloud-only downloads (CLOUD-01..03); slow-mo, HDR/Dolby Vision, Cinematic, ProRes; edited versions not backed up.
 
 ### Blockers/Concerns

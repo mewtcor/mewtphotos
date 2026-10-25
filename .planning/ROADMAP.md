@@ -40,7 +40,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Pair and See What's Missing** - QR pairing, library access handling, and a read-only count of what the PC does not have yet
 - [x] **Phase 5: Back Up Photos** - "Back up now" sends every photo as its original, with live progress and a result the PC confirms
 - [x] **Phase 6: Videos, Live Photos, iCloud and Retry** - Closed (go) 2026-10-13 with gaps: iCloud-only downloads and slow-mo/HDR/Cinematic/ProRes parked by owner; retry built, not yet device-tested
-- [x] **Phase 7: Coverage Report** - Closed (go) 2026-10-13; the phone lists what the PC lacks; unfinished-run fix `c272a40` not yet device-verified
+- [x] **Phase 7: Coverage Report** - Closed (go) 2026-10-13; the phone lists what the PC lacks; unfinished-run fix `c272a40` device-verified 2026-10-26
 
 ## Phase Details
 

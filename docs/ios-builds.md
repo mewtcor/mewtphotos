@@ -17,7 +17,7 @@ record what passed on the phone; this log only says which build contains which c
 | 29 | `71bf953` | 2026-10-12 | Videos sent as originals; resume from the PC's offset (06-03) | Videos verified (IMG_7545, IMG_2280, IMG_5378) |
 | 30 | `4130bee` | 2026-10-12 | Speed-test upload sends the photo's date, so a resume can match | Resume still failed (IMG_8114 sent in full). Fixed in 31 |
 | 31 | `8d15787` | 2026-10-12 | Re-sent video waits for the stalled attempt, then resumes | Pass: IMG_8116 resumed from the PC's offset (313 MB already on the PC) |
-| 32 | `a4405a4` | 2026-10-12 | Retry failed items: **Retry N failed** and single **Retry** (06-04) | Retry not yet tested on device |
+| 32 | `a4405a4` | 2026-10-12 | Retry failed items: **Retry N failed** and single **Retry** (06-04) | Pass (2026-10-26): after forced failures, Retry worked and the phone totals matched the PC |
 | 33 | `9b5adac` | 2026-10-13 | A run stops only in the background, not for Control Center | Pass: Control Center no longer stops the run |
 | 34 | `728ffb1` | 2026-10-13 | Coverage section: what the PC is missing (Phase 7) | Pass: "Coverage verified" on 4,083 of 4,083 |
-| 35 | `c272a40` | 2026-10-13 | Continuing an unfinished run picks up photos taken since it started | Not yet tested on device |
+| 35 | `c272a40` | 2026-10-13 | Continuing an unfinished run picks up photos taken since it started | Pass (2026-10-26): continuing the unfinished run picked up the new photo; all four expected conditions met |

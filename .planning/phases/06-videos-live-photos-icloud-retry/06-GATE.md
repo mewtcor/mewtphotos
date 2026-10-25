@@ -59,3 +59,5 @@ Unit tests cover the run record (`retryFailed`, `retry(at:)`). The screen button
 Closed (go) on 2026-10-13, owner decision. Open items carried forward: retry on a device (untested), the parked iCloud and
 slow-motion, HDR, ProRes checks, and the v1 gaps above (switching apps stops the run; no "paused" message or automatic
 resume). Decide whether to start a new phase for the parked iCloud work.
+
+**Update 2026-10-26:** checked on the device. After forced failures, Retry worked and the phone totals matched the PC. REP-04 is now a pass.
