@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-10-11)
 
 ## Current Position
 
-Phase: 08 (Interface Redesign) — built, not yet checked on the phone
+Phase: 08 (Interface Redesign) — built and checked on the phone (build 38); PR 1 not yet merged
 Status: Phases 1-7 closed. PR [mewtcor/mewtphotos#1](https://github.com/mewtcor/mewtphotos/pull/1) is open with CI green.
 Last activity: 2026-10-26 — redesign, new icon, rename, build 38
 
@@ -58,7 +58,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Device-check build 38 (Mewt Photos name and icon, new layout, a Back up now run), then merge PR 1.
+- ~~Device-check build 38~~ Done 2026-10-26: works on the phone, owner approved the UI. Merge PR 1 next.
 - Pair the new app, delete the old one from the phone, and rename the iCloud Drive builds folder.
 - ~~Device-test Retry (REP-04)~~ Done 2026-10-26: forced failures, retried, phone totals matched the PC.
 - ~~Device-verify `c272a40`~~ Done 2026-10-26: passed on the phone (unfinished run picks up photos taken since it started).
@@ -87,5 +87,5 @@ Items acknowledged and deferred, most recent first:
 ## Session Continuity
 
 Last session: 2026-10-26
-Stopped at: Phase 8 built (build 38); waiting for the device check and PR 1
+Stopped at: Phase 8 passed on the phone (build 38); paused with PR 1 open and not merged
 Resume file: None

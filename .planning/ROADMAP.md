@@ -161,7 +161,7 @@ Plans:
 
 **Plans**: TBD
 **UI hint**: yes
-**Status**: Code written 2026-10-26; not yet built or checked on the phone (needs one macOS build).
+**Status**: Built (build 38) and checked on the phone 2026-10-26; PR 1 still to merge.
 
 ## Progress
 
@@ -179,7 +179,7 @@ start until the Phase 2 go/no-go note says go.
 | 5. Back Up Photos | Gate: go | Complete | 2026-10-13 |
 | 6. Videos, Live Photos, iCloud and Retry | Gate: go, with gaps | Complete (gaps recorded) | 2026-10-13 |
 | 7. Coverage Report | Gate: go | Complete | 2026-10-13 |
-| 8. Interface Redesign | Code written, awaiting build and device check | In progress | - |
+| 8. Interface Redesign | Device check passed, PR 1 to merge | In progress | - |
 
 ## Planning Notes
 
