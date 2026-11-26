@@ -1,120 +1,93 @@
-# Mac mini (Linux Mint) 24/7 Server Setup & Migration Guide
+# Mac mini (`mewtMini` · Linux Mint) 24/7 Server Setup & Migration Guide
 
-Run Mewt Photos continuously on your Mac mini (`192.168.4.20`) running Linux Mint, storing backups in
-`/Media/iphonePhotosBackup` over your home LAN. No cloud, no paid services, and the admin dashboard
-stays loopback-only (`127.0.0.1`) so no extra LAN password surface is exposed.
+Run Mewt Photos continuously on your Mac mini (`mewtMini`, `192.168.4.20`, Linux Mint 22.3),
+storing backups on the external 1 TB drive at `/mnt/external/Media/iphonePhotosBackup`
+(shared over Samba as `\\192.168.4.20\External\Media\iphonePhotosBackup`).
 
-## 1. Prerequisites on the Mac mini (`192.168.4.20`)
+> **Port note:** Port `8787` on `mewtMini` is already used by `altkeeper`. Mewt Photos runs on
+> port **`8788`** (`http://192.168.4.20:8788` for the iPhone; `http://127.0.0.1:8788/dashboard`
+> for the loopback-only admin dashboard).
 
-1. **Node.js ≥ 22.18 (Node 24 LTS recommended):**
-   ```bash
-   node -v
-   ```
-   If older than `22.18`, install Node 24 LTS:
-   ```bash
-   curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-   sudo apt-get install -y nodejs
-   ```
+## 1. Docker Compose Deployment (Recommended — Matches `mewtplay-server` & `audiobookshelf`)
 
-2. **Disable sleep / suspend so backups work 24/7:**
-   ```bash
-   sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-   ```
-
-3. **Keep `192.168.4.20` pinned** via a static DHCP reservation on your router (or static IP in Linux Mint Network Settings).
-
-4. **Allow port `8787` on your local LAN only (UFW):**
-   ```bash
-   sudo ufw allow from 192.168.4.0/24 to any port 8787 proto tcp
-   sudo ufw status
-   ```
-
-## 2. Install Mewt Photos
+The server lives in `/home/mewt/codes/mewtphotos` and runs as `mewtphotos-server` via Docker Compose
+(`network_mode: host`, `user: 1000:1000`, `restart: unless-stopped`):
 
 ```bash
-sudo useradd --system --create-home --shell /usr/sbin/nologin mewtphotos || true
-sudo mkdir -p /opt/mewtphotos /var/lib/mewtphotos /Media/iphonePhotosBackup
-sudo git clone <your-repo-url> /opt/mewtphotos
-cd /opt/mewtphotos
-sudo npm ci
-sudo npm run build
-sudo chown -R mewtphotos:mewtphotos /opt/mewtphotos /var/lib/mewtphotos /Media/iphonePhotosBackup
+cd /home/mewt/codes/mewtphotos
+mkdir -p data /mnt/external/Media/iphonePhotosBackup
+docker compose -f deploy/linux-mint/docker-compose.yml up -d --build
 ```
 
-> **Note on `/Media` permissions:** If `/Media` is an external drive or secondary partition mounted in `/etc/fstab`:
-> - Mount it permanently by UUID with `nofail,x-systemd.automount`.
-> - Ensure the `mewtphotos` user has read/write permission on `/Media/iphonePhotosBackup` (for `ext4`, `chown -R mewtphotos:mewtphotos /Media/iphonePhotosBackup`; for `exfat`/`ntfs`, set `uid`/`gid` or `umask=000` in `/etc/fstab` or run the service as your Linux user).
-> - `mewtphotos.service` already includes `RequiresMountsFor=/Media` so the server will never accidentally write to the root OS partition if `/Media` isn't mounted.
-
-## 3. Configure `systemd` (24/7 Service + Weekly SHA-256 Verify)
-
-`deploy/linux-mint/mewtphotos.env.example` is pre-configured with `MEWTPHOTOS_HOST=192.168.4.20` and `MEWTPHOTOS_BACKUP_DIR=/Media/iphonePhotosBackup`.
-
+Check status, health, and logs (including the startup pairing QR code):
 ```bash
-sudo cp /opt/mewtphotos/deploy/linux-mint/mewtphotos.env.example /etc/mewtphotos.env
-sudo chmod 640 /etc/mewtphotos.env
-sudo chown root:mewtphotos /etc/mewtphotos.env
-
-sudo cp /opt/mewtphotos/deploy/linux-mint/mewtphotos.service /etc/systemd/system/
-sudo cp /opt/mewtphotos/deploy/linux-mint/mewtphotos-verify.service /etc/systemd/system/
-sudo cp /opt/mewtphotos/deploy/linux-mint/mewtphotos-verify.timer /etc/systemd/system/
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now mewtphotos.service
-sudo systemctl enable --now mewtphotos-verify.timer
+docker ps --filter name=mewtphotos-server
+docker logs --tail 50 mewtphotos-server
+curl -s http://127.0.0.1:8788/api/v1/health
 ```
 
-Check status and logs (including the startup pairing QR code):
+Run an on-demand full SHA-256 verification pass inside the container:
 ```bash
-sudo systemctl status mewtphotos.service
-journalctl -u mewtphotos.service -n 50 --no-pager
+docker exec mewtphotos-server npm run verify
 ```
 
-## 4. Accessing the Dashboard from Your Windows PC
+## 2. Accessing the Dashboard from Your Windows PC
 
-The admin dashboard and `/api/v1/admin/*` routes stay bound to `127.0.0.1` on the Mac mini.
+The admin dashboard and `/api/v1/admin/*` routes stay strictly bound to `127.0.0.1:8788` on `mewtMini`.
 Open it safely from Windows via SSH port forwarding:
 
 ```powershell
-ssh -L 8787:127.0.0.1:8787 <linux-user>@192.168.4.20
+ssh -L 8788:127.0.0.1:8788 mewt@192.168.4.20
 ```
 
-Then open **http://127.0.0.1:8787/dashboard** in your Windows browser to view live transfers,
+Then open **http://127.0.0.1:8788/dashboard** in your Windows browser to view live transfers,
 logs, settings, paired devices, and the QR pairing code.
 
-## 5. Migrating Existing Windows Backups & `mewtphotos.db`
+## 3. Optional Native `systemd` Units
+
+If you ever prefer running directly with host Node.js (≥ 22.18) instead of Docker, pre-configured
+units are also provided in `deploy/linux-mint/`:
+- `mewtphotos.env.example` (pinned to `192.168.4.20:8788` and `/mnt/external/Media/iphonePhotosBackup`)
+- `mewtphotos.service` (includes `RequiresMountsFor=/mnt/external`)
+- `mewtphotos-verify.service` & `mewtphotos-verify.timer` (weekly SHA-256 integrity check)
+
+If you enable UFW on `mewtMini`, allow your `/22` LAN subnet on port `8788`:
+```bash
+sudo ufw allow from 192.168.4.0/22 to any port 8788 proto tcp
+```
+
+## 4. Migrating Existing Windows Backups & `mewtphotos.db`
 
 Because `mewtphotos.db` stores absolute Windows paths (`C:\Users\...\Pictures\iPhone Backup\YYYY\MM\...`),
-rewrite them before starting the Linux Mint service so your existing archive, `asset_id` history,
-and iPhone device key carry over seamlessly without re-uploading:
+rewrite them before starting `mewtphotos-server` on migrated data so your existing archive, `asset_id`
+history, and iPhone device key carry over seamlessly without re-uploading:
 
-1. **Stop Mewt Photos on Windows** (and keep a backup copy of `mewtphotos.db`).
-2. **Copy the backup folder** (`iPhone Backup\`) contents from Windows into `/Media/iphonePhotosBackup` on the Mac mini (so `/Media/iphonePhotosBackup/2026/...` matches the folder structure).
-3. **Copy `%LOCALAPPDATA%\MewtPhotos\mewtphotos.db`** (and any `-wal`/`-shm` files if present) to `/var/lib/mewtphotos/mewtphotos.db` and set ownership (`sudo chown mewtphotos:mewtphotos /var/lib/mewtphotos/mewtphotos.db*`).
+1. **Stop Mewt Photos** on Windows and stop the container on `mewtMini`:
+   ```bash
+   docker stop mewtphotos-server
+   ```
+2. **Copy the backup folder contents** from Windows into `/mnt/external/Media/iphonePhotosBackup`
+   (e.g., via Samba `\\192.168.4.20\External\Media\iphonePhotosBackup` or `rsync`, preserving `YYYY/MM/...`).
+3. **Copy `%LOCALAPPDATA%\MewtPhotos\mewtphotos.db`** (plus any `-wal`/`-shm` files if present)
+   to `/home/mewt/codes/mewtphotos/data/mewtphotos.db` (keep a backup copy on Windows).
 4. **Dry-run, then apply the path migration script** (replace `YourName` with your Windows path):
    ```bash
-   # Preview changes first (no writes):
-   sudo -u mewtphotos node --disable-warning=ExperimentalWarning /opt/mewtphotos/scripts/migrate-db-paths.ts \
-     --db /var/lib/mewtphotos/mewtphotos.db \
+   docker run --rm --user 1000:1000 \
+     -v /home/mewt/codes/mewtphotos/data:/home/mewt/codes/mewtphotos/data \
+     linux-mint-mewtphotos \
+     node --disable-warning=ExperimentalWarning scripts/migrate-db-paths.ts \
+     --db /home/mewt/codes/mewtphotos/data/mewtphotos.db \
      --from "C:\Users\YourName\Pictures\iPhone Backup" \
-     --to "/Media/iphonePhotosBackup" \
+     --to "/mnt/external/Media/iphonePhotosBackup" \
      --dry-run
-
-   # Apply migration:
-   sudo -u mewtphotos node --disable-warning=ExperimentalWarning /opt/mewtphotos/scripts/migrate-db-paths.ts \
-     --db /var/lib/mewtphotos/mewtphotos.db \
-     --from "C:\Users\YourName\Pictures\iPhone Backup" \
-     --to "/Media/iphonePhotosBackup"
    ```
+   Remove `--dry-run` to apply.
 5. **Cryptographically verify every migrated file on disk:**
    ```bash
-   sudo -u mewtphotos MEWTPHOTOS_DATA_DIR=/var/lib/mewtphotos npm --prefix /opt/mewtphotos run verify
+   docker start mewtphotos-server
+   docker exec mewtphotos-server npm run verify
    ```
-   Confirm `0 missing, 0 corrupt, 0 database problems` before starting the service.
-6. **Start the service:**
-   ```bash
-   sudo systemctl start mewtphotos.service
-   ```
-7. **Point your iPhone at the Mac mini:**
-   Open **Mewt Photos** → **Server** tab → **Edit address** → enter **`http://192.168.4.20:8787`** → **Save**.
+   Confirm `0 missing, 0 corrupt, 0 database problems`.
+6. **Point your iPhone at `mewtMini`:**
+   Open **Mewt Photos** → **Server** tab → **Edit address** → enter **`http://192.168.4.20:8788`** → **Save**.
    Your existing Keychain device key stays valid without re-pairing!

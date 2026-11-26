@@ -3,8 +3,8 @@ Description=Mewt Photos 24/7 Local Backup Server
 Documentation=file:///opt/mewtphotos/docs/setup-linux-mint.md
 After=network-online.target local-fs.target
 Wants=network-online.target
-# Ensures /Media (if mounted from a separate drive/partition in /etc/fstab) is mounted before starting.
-RequiresMountsFor=/Media
+# Ensures /mnt/external (external USB drive in /etc/fstab) is mounted before starting.
+RequiresMountsFor=/mnt/external
 
 [Service]
 Type=simple

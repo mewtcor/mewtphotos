@@ -1,0 +1,23 @@
+services:
+  mewtphotos:
+    build:
+      context: ../..
+      dockerfile: deploy/linux-mint/Dockerfile
+    container_name: mewtphotos-server
+    restart: unless-stopped
+    network_mode: host
+    user: "1000:1000"
+    environment:
+      MEWTPHOTOS_DAEMON: "1"
+      MEWTPHOTOS_PORT: "8788"
+      MEWTPHOTOS_HOST: "192.168.4.20"
+      MEWTPHOTOS_DATA_DIR: "/home/mewt/codes/mewtphotos/data"
+      MEWTPHOTOS_BACKUP_DIR: "/mnt/external/Media/iphonePhotosBackup"
+    volumes:
+      - /home/mewt/codes/mewtphotos/data:/home/mewt/codes/mewtphotos/data
+      - /mnt/external/Media/iphonePhotosBackup:/mnt/external/Media/iphonePhotosBackup
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8788/api/v1/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

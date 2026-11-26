@@ -947,7 +947,7 @@ private struct ServerBentoTab<DataSource: MewtPhotosUIDataSource>: View {
                                 .tracking(0.8)
                                 .foregroundStyle(ObsidianPalette.textMuted)
 
-                            TextField("http://192.168.4.20:8787", text: $manualAddress)
+                            TextField("http://192.168.4.20:8788", text: $manualAddress)
                                 .font(.system(size: 13, design: .monospaced))
                                 .foregroundStyle(ObsidianPalette.textPrimary)
                                 .keyboardType(.URL)
@@ -988,7 +988,7 @@ private struct ServerBentoTab<DataSource: MewtPhotosUIDataSource>: View {
                         }
                     } else if editingAddress {
                         VStack(spacing: 8) {
-                            TextField("http://192.168.4.20:8787", text: $draftAddress)
+                            TextField("http://192.168.4.20:8788", text: $draftAddress)
                                 .font(.system(size: 12.5, design: .monospaced))
                                 .foregroundStyle(ObsidianPalette.textPrimary)
                                 .keyboardType(.URL)
