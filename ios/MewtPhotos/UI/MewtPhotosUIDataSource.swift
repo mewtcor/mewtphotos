@@ -144,6 +144,9 @@ public protocol MewtPhotosUIDataSource: ObservableObject {
     var stopWarning: String? { get }
     var editsNoticeText: String { get }
 
+    var autoBackup247Enabled: Bool { get set }
+    var autoBackupStatusText: String { get }
+
     var mediaItems: [MewtMediaItem] { get }
     var alerts: [MewtAlertItem] { get }
     var logExportURL: URL? { get }
@@ -211,6 +214,12 @@ public final class PreviewMewtDataSource: MewtPhotosUIDataSource {
     public var failedCount: Int { lastRunSummary?.failed ?? 0 }
     @Published public var stopWarning: String? = nil
     public var editsNoticeText: String = "Edited versions of photos are not backed up yet. Only the originals are sent."
+    @Published public var autoBackup247Enabled: Bool = true
+    public var autoBackupStatusText: String {
+        autoBackup247Enabled
+            ? "Armed · iOS runs automatically while charging on home Wi-Fi."
+            : "Off · Enable for overnight Wi-Fi sync while charging."
+    }
 
     @Published public var mediaItems: [MewtMediaItem] = [
         MewtMediaItem(

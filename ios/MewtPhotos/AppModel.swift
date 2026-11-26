@@ -54,6 +54,10 @@ final class AppModel {
     private(set) var serverStatus: ServerStatus?
     /// True while a verify trigger request is in flight or the server reports verifyRunning.
     private(set) var verifying = false
+    /// Whether overnight charging Wi-Fi auto-backup (BGProcessingTask) is enabled.
+    var autoBackup247Enabled: Bool = BackgroundSyncScheduler.shared.isEnabled
+    /// Timestamp + summary of the last overnight background backup run, if any.
+    private(set) var lastAutoBackupSummary: String? = BackgroundSyncScheduler.shared.lastRunSummaryText
 
     private let environment: AppEnvironment?
 
@@ -104,10 +108,36 @@ final class AppModel {
             keychain: stored.key, pairing: stored.record)
         await environment.log.append(.info, code: "launch", facts.logLine)
         backup?.refreshPhotoAccess()
+        refreshAutoBackupState()
         guard case .paired = state else { return }
         connectionText = Self.connectionText(await environment.flow.checkConnection())
         await refreshServerStatus()
         await backup?.recount(pairing: self)
+        if autoBackup247Enabled && (backup?.photoAccess.canRun == true) {
+            BackgroundSyncScheduler.shared.scheduleNext(reason: "launch")
+        }
+    }
+
+    func setAutoBackup247(_ enabled: Bool) {
+        BackgroundSyncScheduler.shared.isEnabled = enabled
+        autoBackup247Enabled = enabled
+    }
+
+    func refreshAutoBackupState() {
+        autoBackup247Enabled = BackgroundSyncScheduler.shared.isEnabled
+        lastAutoBackupSummary = BackgroundSyncScheduler.shared.lastRunSummaryText
+    }
+
+    /// Restores saved pairing if iOS launched the app headless in the background before SwiftUI `.task` ran.
+    func ensureRestoredForBackground() async {
+        guard let environment else { return }
+        if case .unpaired = state {
+            state = await environment.flow.restore()
+        }
+    }
+
+    func logEvent(_ level: LogLevel, code: String, _ message: String) async {
+        await environment?.log.append(level, code: code, message)
     }
 
     func refreshServerStatus() async {
@@ -277,6 +307,7 @@ final class AppModel {
     /// Forgets the PC on this iPhone. Pairing again needs a new code from the PC.
     func forget() async {
         guard let environment else { return }
+        BackgroundSyncScheduler.shared.cancelAll(reason: "forgot_server")
         await environment.flow.forget()
         connectionText = nil
         serverStatus = nil

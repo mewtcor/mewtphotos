@@ -1074,29 +1074,35 @@ private struct ServerBentoTab<DataSource: MewtPhotosUIDataSource>: View {
                 }
             }
 
-            // 24/7 Mac mini (Linux Mint) Auto-Backup Readiness — honestly disabled until BGProcessingTask is wired
+            // 24/7 Auto-Backup (BGProcessingTask while charging on home Wi-Fi)
             GlassCard {
-                Toggle(isOn: .constant(false)) {
+                let canSchedule = dataSource.isPaired && dataSource.photoAccessState.isFull
+                let isArmed = canSchedule && dataSource.autoBackup247Enabled
+                Toggle(isOn: $dataSource.autoBackup247Enabled) {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: 6) {
                             Text("24/7 Auto-Backup")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(ObsidianPalette.textPrimary)
-                            Text("Linux Mint · Coming soon")
+                            Text(isArmed ? "Armed" : "BGTask")
                                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(accent.color)
+                                .foregroundStyle(isArmed ? ObsidianPalette.ok : accent.color)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(RoundedRectangle(cornerRadius: 5).fill(accent.softFill))
+                                .background(
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(isArmed ? ObsidianPalette.okSoft : accent.softFill)
+                                )
                         }
-                        Text("Automatic overnight Wi-Fi sync while charging will activate once the Mac mini Linux Mint daemon and background task are linked.")
+                        Text(dataSource.autoBackupStatusText)
                             .font(.system(size: 11.5))
                             .foregroundStyle(ObsidianPalette.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .tint(accent.color)
-                .disabled(true)
-                .opacity(0.75)
+                .disabled(!canSchedule)
+                .opacity(canSchedule ? 1.0 : 0.6)
             }
 
             // Accent Picker

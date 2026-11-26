@@ -182,6 +182,27 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
         BackupPlanner.editsNotice
     }
 
+    var autoBackup247Enabled: Bool {
+        get { model.autoBackup247Enabled }
+        set { model.setAutoBackup247(newValue) }
+    }
+
+    var autoBackupStatusText: String {
+        if !isPaired {
+            return "Pair with your server to enable overnight Wi-Fi sync."
+        }
+        if !photoAccessState.isFull {
+            return "Full photo access is required for automatic overnight sync."
+        }
+        if !model.autoBackup247Enabled {
+            return "Off · Turn on to sync automatically over home Wi-Fi while charging."
+        }
+        if let last = model.lastAutoBackupSummary {
+            return "Armed · Last run: \(last)"
+        }
+        return "Armed · iOS runs automatically while charging on home Wi-Fi."
+    }
+
     var mediaItems: [MewtMediaItem] {
         cachedMediaItems
     }
@@ -276,7 +297,12 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
     }
 
     func onEnteredBackground() {
-        model.backup?.stop()
+        if !(model.backup?.isBackgroundRun ?? false) {
+            model.backup?.stop()
+        }
+        if model.autoBackup247Enabled && isPaired && photoAccessState.isFull {
+            BackgroundSyncScheduler.shared.scheduleNext(reason: "entered_background")
+        }
     }
 
     // MARK: - Observation Bridge & Derived Models
@@ -290,6 +316,8 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
             _ = model.connectionText
             _ = model.serverStatus
             _ = model.verifying
+            _ = model.autoBackup247Enabled
+            _ = model.lastAutoBackupSummary
             if let backup = model.backup {
                 _ = backup.photoAccess
                 _ = backup.libraryCounts

@@ -26,6 +26,7 @@ final class BackupModel {
     private(set) var coverageFailed = false
     private(set) var recounting = false
     private(set) var running = false
+    private(set) var isBackgroundRun = false
     /// Live transfer telemetry for the active file.
     private(set) var activeFileName = ""
     private(set) var activeFileProgress: Double = 0
@@ -148,7 +149,7 @@ final class BackupModel {
     }
 
     /// Starts a run, or continues the unfinished one. Items the PC already has are skipped by identity.
-    func start(pairing: AppModel) async {
+    func start(pairing: AppModel, isBackgroundTask: Bool = false) async {
         guard !running else { return }
         refreshPhotoAccess()
         guard photoAccess.canRun else {
@@ -160,19 +161,25 @@ final class BackupModel {
             return
         }
         running = true
+        isBackgroundRun = isBackgroundTask
         stopRequested = false
         stopMessage = nil
         activeFileName = ""
         activeFileProgress = 0
         transferSpeedMBps = 0
         speedSamples = [0, 0, 0, 0, 0, 0, 0, 0]
-        UIApplication.shared.isIdleTimerDisabled = true
+        if !isBackgroundTask {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
         defer {
             running = false
+            isBackgroundRun = false
             activeFileName = ""
             activeFileProgress = 0
             transferSpeedMBps = 0
-            UIApplication.shared.isIdleTimerDisabled = false
+            if !isBackgroundTask {
+                UIApplication.shared.isIdleTimerDisabled = false
+            }
         }
 
         let (items, paired) = BackupModel.libraryItems()
