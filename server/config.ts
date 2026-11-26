@@ -16,7 +16,7 @@ const GB = 1024 ** 3;
  */
 export function dataDir(): string {
   if (process.env.MEWTPHOTOS_DATA_DIR) return process.env.MEWTPHOTOS_DATA_DIR;
-  const base = process.env.LOCALAPPDATA ?? os.homedir();
+  const base = process.env.LOCALAPPDATA ?? process.env.XDG_DATA_HOME ?? os.homedir();
   const dir = path.join(base, 'MewtPhotos');
   const legacy = path.join(base, 'PhotoSync');
   if (!existsSync(dir) && existsSync(legacy)) {
@@ -62,7 +62,8 @@ export function loadSettings(db: Db): Settings {
   const defaults = { organizeByDate: true, maxFileBytes: 50 * GB, quotaBytes: 0, minFreeBytes: 1 * GB, concurrency: 2, stopWithDashboard: true };
   const row = get<{ value: string }>(db, `SELECT value FROM settings WHERE key = 'settings'`);
   if (row) return { ...defaults, ...(JSON.parse(row.value) as Settings) };
-  const settings: Settings = { ...defaults, destination: path.join(picturesDir(), 'iPhone Backup') };
+  const destination = process.env.MEWTPHOTOS_BACKUP_DIR || path.join(picturesDir(), 'iPhone Backup');
+  const settings: Settings = { ...defaults, destination };
   saveSettings(db, settings);
   return settings;
 }

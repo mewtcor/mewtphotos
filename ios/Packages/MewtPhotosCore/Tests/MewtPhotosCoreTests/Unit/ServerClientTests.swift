@@ -75,6 +75,31 @@ import MewtPhotosCore
         #expect(status.serverName == "PC")
     }
 
+    @Test func statusDecodesOptionalArchiveMetrics() async throws {
+        let richStatus = #"{"deviceName":"Phone","serverName":"macmini","chunkSize":8388608,"concurrency":2,"maxFileBytes":53687091200,"freeBytes":112742891520,"storedFiles":7488,"storedBytes":51646980096,"verifyRunning":false,"lastVerifyAt":1761500000000}"#
+        let fake = FakeTransport([.json(richStatus)])
+        let client = ServerClient(base: Self.base, transport: fake)
+        let status = try await client.status(key: DeviceKey("KEY-TEXT-98765"))
+        #expect(status.serverName == "macmini")
+        #expect(status.freeBytes == 112_742_891_520)
+        #expect(status.storedFiles == 7488)
+        #expect(status.storedBytes == 51_646_980_096)
+        #expect(status.verifyRunning == false)
+        #expect(status.lastVerifyAt == 1_761_500_000_000)
+    }
+
+    @Test func triggerVerifySendsAuthenticatedPost() async throws {
+        let fake = FakeTransport([.json(#"{"started":true}"#, status: 202)])
+        let client = ServerClient(base: Self.base, transport: fake)
+        let started = try await client.triggerVerify(key: DeviceKey("KEY-VERIFY-123"))
+        let sent = await fake.requests()
+        let request = try #require(sent.first)
+        #expect(started == true)
+        #expect(request.method == "POST")
+        #expect(request.url.path == "/api/v1/verify")
+        #expect(request.headers["Authorization"] == "Bearer KEY-VERIFY-123")
+    }
+
     @Test func healthSendsNoAuthorization() async throws {
         let fake = FakeTransport([.json(#"{"ok":true,"name":"mewtphotos","apiVersion":1}"#)])
         let client = ServerClient(base: Self.base, transport: fake)

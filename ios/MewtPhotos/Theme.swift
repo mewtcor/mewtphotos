@@ -1,29 +1,21 @@
-// The look of the app: colors, cards, buttons and small building blocks shared by every screen. Dark only,
-// deep navy surfaces with a violet accent. Pure SwiftUI; it must not import Photos (see ci.yml).
+// Shared building blocks used by DiagnosticsView and legacy helper screens.
+// Color(hex:) is defined once in UI/ObsidianTheme.swift. Pure SwiftUI; must never import Photos (see ci.yml).
 import SwiftUI
 
-extension Color {
-    init(hex: UInt32) {
-        self.init(red: Double((hex >> 16) & 0xFF) / 255,
-                  green: Double((hex >> 8) & 0xFF) / 255,
-                  blue: Double(hex & 0xFF) / 255)
-    }
-}
-
 enum Theme {
-    static let background = Color(hex: 0x0B0D1A)
-    static let card = Color(hex: 0x151829)
-    static let field = Color(hex: 0x1E2236)
-    static let border = Color.white.opacity(0.08)
-    static let text = Color(hex: 0xF5F6FA)
-    static let muted = Color(hex: 0x9AA3B8)
-    static let accent = Color(hex: 0xA78BFA)
-    static let cyan = Color(hex: 0x22D3EE)
-    static let good = Color(hex: 0x34D399)
-    static let warn = Color(hex: 0xFBBF24)
-    static let bad = Color(hex: 0xF87171)
-    /// White text on this reads at 5:1 or better across the whole gradient.
-    static let gradient = LinearGradient(colors: [Color(hex: 0x7C3AED), Color(hex: 0x4F46E5)],
+    static let background = ObsidianPalette.background
+    static let card = ObsidianPalette.surfaceSolid
+    static let field = Color(hex: 0x1A1B26)
+    static let border = ObsidianPalette.border
+    static let text = ObsidianPalette.textPrimary
+    static let muted = ObsidianPalette.textSecondary
+    static let accent = MewtAccent.cyan.color
+    static let cyan = MewtAccent.cyan.color
+    static let good = ObsidianPalette.ok
+    static let warn = ObsidianPalette.warn
+    static let bad = ObsidianPalette.err
+    /// High-contrast primary button fill.
+    static let gradient = LinearGradient(colors: [Color(hex: 0x0EA5E9), Color(hex: 0x0284C7)],
                                          startPoint: .topLeading, endPoint: .bottomTrailing)
     static let radius: CGFloat = 20
 }

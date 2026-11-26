@@ -50,6 +50,10 @@ final class AppModel {
     private(set) var backup: BackupModel?
     /// Set after the launch connection check; nil until it has run.
     var connectionText: String?
+    /// Latest server status telemetry (free space, stored archive totals, verify state).
+    private(set) var serverStatus: ServerStatus?
+    /// True while a verify trigger request is in flight or the server reports verifyRunning.
+    private(set) var verifying = false
 
     private let environment: AppEnvironment?
 
@@ -65,6 +69,11 @@ final class AppModel {
     }
 
     var logURL: URL? { environment?.log.fileURL }
+
+    var pairedInfo: PairedInfo? {
+        if case .paired(let info) = state { return info }
+        return nil
+    }
 
     var statusText: String {
         if let connectionText { return connectionText }
@@ -94,8 +103,62 @@ final class AppModel {
             altBundleID: Bundle.main.object(forInfoDictionaryKey: "ALTBundleIdentifier") as? String,
             keychain: stored.key, pairing: stored.record)
         await environment.log.append(.info, code: "launch", facts.logLine)
+        backup?.refreshPhotoAccess()
         guard case .paired = state else { return }
         connectionText = Self.connectionText(await environment.flow.checkConnection())
+        await refreshServerStatus()
+        await backup?.recount(pairing: self)
+    }
+
+    func refreshServerStatus() async {
+        guard let connection = await connection() else {
+            serverStatus = nil
+            verifying = false
+            return
+        }
+        if let status = try? await connection.client.status(key: connection.key) {
+            serverStatus = status
+            verifying = status.verifyRunning ?? false
+            connectionText = "Connected to " + status.serverName
+        }
+    }
+
+    func triggerServerVerify() async {
+        guard let connection = await connection() else { return }
+        verifying = true
+        errorText = nil
+        noticeText = nil
+        do {
+            _ = try await connection.client.triggerVerify(key: connection.key)
+            noticeText = "Server SHA-256 verification started."
+            await refreshServerStatus()
+        } catch ServerClientError.server(let status, _, let message) where status == 409 {
+            noticeText = message
+            await refreshServerStatus()
+        } catch {
+            verifying = false
+            errorText = "Could not start verification on the server. Make sure it is reachable."
+        }
+    }
+
+    func pair(fromQRPayload payload: String) async {
+        addressText = payload
+        codeText = ""
+        await pair()
+        if case .paired = state {
+            await refreshServerStatus()
+            await backup?.recount(pairing: self)
+        }
+    }
+
+    func pairManually(address: String, code: String) async {
+        addressText = address
+        codeText = code
+        await pair()
+        if case .paired = state {
+            await refreshServerStatus()
+            await backup?.recount(pairing: self)
+        }
     }
 
     func pair() async {
@@ -216,7 +279,10 @@ final class AppModel {
         guard let environment else { return }
         await environment.flow.forget()
         connectionText = nil
+        serverStatus = nil
+        verifying = false
         errorText = nil
+        noticeText = nil
         state = .unpaired
     }
 

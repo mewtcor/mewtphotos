@@ -64,6 +64,12 @@ struct ServerContractTests {
         #expect(status.chunkSize == 8388608)
         #expect(!status.serverName.isEmpty)
         #expect(status.deviceName == "Contract Test")
+        #expect(status.freeBytes != nil)
+        #expect(status.storedFiles != nil)
+        #expect(status.storedBytes != nil)
+        #expect(status.verifyRunning != nil)
+        let started = try await client.triggerVerify(key: paired.key)
+        #expect(started == true)
     }
 
     // The only wrong-code request in the whole contract tree.

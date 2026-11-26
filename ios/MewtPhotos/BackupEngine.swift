@@ -12,6 +12,10 @@ import MewtPhotosCore
 final class BackupModel {
     private(set) var record: RunRecord?
     private(set) var stopMessage: String?
+    /// Current Photos library authorization mapped to Core's rule set.
+    private(set) var photoAccess: LibraryAccess = .notDetermined
+    /// Latest lightweight snapshot of the library (newest first), used by the Library and Backup feeds.
+    private(set) var librarySnapshot: [MewtPhotosCore.LibraryItem] = []
     /// What Photos returns for the run's fetch, and how many of those are hidden. Shown to diagnose hidden photos.
     private(set) var libraryCounts: (total: Int, hidden: Int)?
     /// How many of this iPhone's photos the PC holds; nil until it has been asked.
@@ -20,7 +24,15 @@ final class BackupModel {
     /// Which library items the PC holds, and what it is missing; nil until it has been checked (milestone 7).
     private(set) var coverage: Coverage?
     private(set) var coverageFailed = false
+    private(set) var recounting = false
     private(set) var running = false
+    /// Live transfer telemetry for the active file.
+    private(set) var activeFileName = ""
+    private(set) var activeFileProgress: Double = 0
+    private(set) var transferSpeedMBps: Double = 0
+    private(set) var speedSamples: [Double] = [0, 0, 0, 0, 0, 0, 0, 0]
+    /// Lazily inspected PHAssetResource descriptions keyed by asset localIdentifier.
+    private(set) var inspectedParts: [String: [String]] = [:]
     private var stopRequested = false
     private let store: RunStore
     private let work: URL
@@ -29,10 +41,104 @@ final class BackupModel {
         store = RunStore(directory: supportDirectory)
         work = supportDirectory.appendingPathComponent("backup-work", isDirectory: true)
         record = store.load()
+        photoAccess = Self.mapAuthorization(PHPhotoLibrary.authorizationStatus(for: .readWrite))
         try? FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
         // Anything left from an earlier run is removed; the run record decides what is sent again.
         if let files = try? FileManager.default.contentsOfDirectory(at: work, includingPropertiesForKeys: nil) {
             for file in files { try? FileManager.default.removeItem(at: file) }
+        }
+    }
+
+    func refreshPhotoAccess() {
+        photoAccess = Self.mapAuthorization(PHPhotoLibrary.authorizationStatus(for: .readWrite))
+    }
+
+    func requestPhotoAccess() async {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+        photoAccess = Self.mapAuthorization(status)
+    }
+
+    /// Reads photo access, refreshes the library snapshot, and compares coverage with the paired server.
+    func recount(pairing: AppModel) async {
+        refreshPhotoAccess()
+        guard photoAccess.canRun else {
+            librarySnapshot = []
+            libraryCounts = nil
+            coverage = nil
+            return
+        }
+        guard !recounting else { return }
+        recounting = true
+        defer { recounting = false }
+
+        let (items, _) = Self.libraryItems()
+        librarySnapshot = items
+        libraryCounts = (items.count, items.filter(\.hidden).count)
+
+        guard let connection = await pairing.connection() else {
+            coverage = nil
+            pcCount = nil
+            return
+        }
+        do {
+            let held = try await connection.client.heldAssetIds(key: connection.key)
+            coverage = Coverage.compare(library: items, held: held)
+            coverageFailed = false
+        } catch {
+            coverageFailed = true
+        }
+        await refreshPCCount(pairing: pairing)
+        await pairing.refreshServerStatus()
+    }
+
+    /// Lazily reads PHAssetResource metadata for one item when expanded in the UI (zero file export).
+    func inspectResourceParts(assetId: String) {
+        guard inspectedParts[assetId] == nil else { return }
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.includeHiddenAssets = true
+        fetchOptions.includeAllBurstAssets = true
+        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: fetchOptions).firstObject else {
+            inspectedParts[assetId] = ["Asset no longer in library"]
+            return
+        }
+        let resources = PHAssetResource.assetResources(for: asset)
+        if resources.isEmpty {
+            inspectedParts[assetId] = ["No stored resources found"]
+            return
+        }
+        inspectedParts[assetId] = resources.map { resource in
+            let kind = Self.resourceKindLabel(resource.type)
+            let size = (resource.value(forKey: "fileSize") as? Int64).map { " · " + ItemParts.formatBytes($0) } ?? ""
+            return "\(resource.originalFilename) (\(kind))\(size)"
+        }
+    }
+
+    private static func mapAuthorization(_ status: PHAuthorizationStatus) -> LibraryAccess {
+        switch status {
+        case .authorized: return .full
+        case .limited: return .limited
+        case .denied: return .denied
+        case .restricted: return .restricted
+        case .notDetermined: return .notDetermined
+        @unknown default: return .denied
+        }
+    }
+
+    private static func resourceKindLabel(_ type: PHAssetResourceType) -> String {
+        switch type {
+        case .photo: return "Original photo"
+        case .video: return "Original video"
+        case .audio: return "Audio"
+        case .alternatePhoto: return "RAW companion"
+        case .fullSizePhoto: return "Edited · skipped"
+        case .fullSizeVideo: return "Edited video · skipped"
+        case .adjustmentData: return "Edit data · skipped"
+        case .adjustmentBasePhoto: return "Adjustment base"
+        case .pairedVideo: return "Live Photo paired"
+        case .fullSizePairedVideo: return "Edited Live video · skipped"
+        case .adjustmentBasePairedVideo: return "Live base video"
+        case .adjustmentBaseVideo: return "Adjustment base video"
+        @unknown default: return "Resource"
         }
     }
 
@@ -44,25 +150,39 @@ final class BackupModel {
     /// Starts a run, or continues the unfinished one. Items the PC already has are skipped by identity.
     func start(pairing: AppModel) async {
         guard !running else { return }
+        refreshPhotoAccess()
+        guard photoAccess.canRun else {
+            stopMessage = photoAccess.message
+            return
+        }
         guard let connection = await pairing.connection() else {
-            stopMessage = "Pair with your PC first."
+            stopMessage = "Pair with your server first."
             return
         }
         running = true
         stopRequested = false
         stopMessage = nil
+        activeFileName = ""
+        activeFileProgress = 0
+        transferSpeedMBps = 0
+        speedSamples = [0, 0, 0, 0, 0, 0, 0, 0]
         UIApplication.shared.isIdleTimerDisabled = true
         defer {
             running = false
+            activeFileName = ""
+            activeFileProgress = 0
+            transferSpeedMBps = 0
             UIApplication.shared.isIdleTimerDisabled = false
         }
 
         let (items, paired) = BackupModel.libraryItems()
+        librarySnapshot = items
+        libraryCounts = (items.count, items.filter(\.hidden).count)
         let flags: [Bool]
         do {
             flags = try await connection.client.knownAssets(key: connection.key, assetIds: items.map(\.assetId))
         } catch {
-            stopMessage = "Could not check with the PC. Make sure it is reachable, then try again."
+            stopMessage = "Could not check with the server. Make sure it is reachable, then try again."
             return
         }
         var known = Set<String>()
@@ -75,8 +195,20 @@ final class BackupModel {
         let store = self.store
 
         let runner = BackupRunner(
-            prepare: { entry in try await BackupModel.prepare(entry, work: await self.workFolder()) },
-            send: { item in try await BackupModel.send(item, connection: connection, work: await self.workFolder()) },
+            prepare: { entry in
+                await MainActor.run {
+                    self.activeFileName = entry.fileName
+                    self.activeFileProgress = 0
+                }
+                return try await BackupModel.prepare(entry, work: await self.workFolder())
+            },
+            send: { item in
+                try await BackupModel.send(item, connection: connection, work: await self.workFolder()) { fileName, fraction, mbps in
+                    Task { @MainActor in
+                        self.recordTransferSample(fileName: fileName, fraction: fraction, mbps: mbps)
+                    }
+                }
+            },
             discard: { item in
                 try? FileManager.default.removeItem(at: item.fileURL)
                 for part in item.companions { try? FileManager.default.removeItem(at: part.fileURL) }
@@ -91,6 +223,19 @@ final class BackupModel {
         stopMessage = result.stopMessage
         await refreshPCCount(pairing: pairing)
         await refreshCoverage(pairing: pairing)
+        await pairing.refreshServerStatus()
+    }
+
+    private func recordTransferSample(fileName: String, fraction: Double, mbps: Double) {
+        activeFileName = fileName
+        activeFileProgress = min(max(fraction, 0), 1)
+        if mbps > 0 {
+            transferSpeedMBps = mbps
+            speedSamples.append(mbps)
+            if speedSamples.count > 12 {
+                speedSamples.removeFirst(speedSamples.count - 12)
+            }
+        }
     }
 
     func refreshLibraryCounts() {
@@ -258,22 +403,36 @@ final class BackupModel {
     /// `duplicate` from the PC counts as backed up.
     /// Sends every part of the photo. Companions go first, without the asset identifier, and the main file last with it,
     /// so the PC counts the photo as held only after every part is verified.
-    static func send(_ item: PreparedItem, connection: PairedConnection, work: URL) async throws -> SendResult {
+    static func send(
+        _ item: PreparedItem,
+        connection: PairedConnection,
+        work: URL,
+        onProgress: (@Sendable (String, Double, Double) -> Void)? = nil
+    ) async throws -> SendResult {
         let pairId: String? = item.companions.isEmpty ? nil : item.entry.assetId
         var results: [SendResult] = []
         for companion in item.companions {
             results.append(try await sendPart(companion, item: item, assetId: nil, pairId: pairId,
-                                              pairName: item.entry.fileName, connection: connection))
+                                              pairName: item.entry.fileName, connection: connection,
+                                              onProgress: onProgress))
         }
         let main = PreparedPart(fileName: item.entry.fileName, fileURL: item.fileURL, bytes: item.bytes, sha256: item.sha256)
         results.append(try await sendPart(main, item: item, assetId: item.entry.assetId, pairId: pairId,
-                                          pairName: item.companions.first?.fileName, connection: connection))
+                                          pairName: item.companions.first?.fileName, connection: connection,
+                                          onProgress: onProgress))
         return PhotoParts.combine(results)
     }
 
     /// Opens the upload for one file, sends the bytes in the background, and finishes it.
-    private static func sendPart(_ part: PreparedPart, item: PreparedItem, assetId: String?, pairId: String?,
-                                 pairName: String?, connection: PairedConnection) async throws -> SendResult {
+    private static func sendPart(
+        _ part: PreparedPart,
+        item: PreparedItem,
+        assetId: String?,
+        pairId: String?,
+        pairName: String?,
+        connection: PairedConnection,
+        onProgress: (@Sendable (String, Double, Double) -> Void)? = nil
+    ) async throws -> SendResult {
         let name = part.fileName
         let begun: BegunUpload
         do {
@@ -285,7 +444,10 @@ final class BackupModel {
         } catch {
             throw mapped(error)
         }
-        if begun.alreadyStored { return .alreadyOnPC }
+        if begun.alreadyStored {
+            onProgress?(name, 1.0, 0)
+            return .alreadyOnPC
+        }
 
         if begun.offset < part.bytes {
             let source = begun.offset == 0 ? part.fileURL : try BackgroundUploader.tail(of: part.fileURL, from: begun.offset)
@@ -297,14 +459,27 @@ final class BackupModel {
             request.setValue("Bearer \(connection.key.revealForAuthorization())", forHTTPHeaderField: "Authorization")
             request.setValue("application/offset+octet-stream", forHTTPHeaderField: "Content-Type")
             request.setValue(String(begun.offset), forHTTPHeaderField: "Upload-Offset")
-            try await transfer(request, from: source)
+            let started = ContinuousClock.now
+            let baseOffset = begun.offset
+            let totalSize = part.bytes
+            try await transfer(request, from: source) { sentBytes, _ in
+                let elapsedParts = started.duration(to: .now).components
+                let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
+                let mbps = elapsed > 0.05 ? (Double(sentBytes) / 1_000_000.0) / elapsed : 0
+                let fraction = totalSize > 0 ? Double(baseOffset + sentBytes) / Double(totalSize) : 1.0
+                onProgress?(name, fraction, mbps)
+            }
         }
 
         do {
             let finished = try await connection.client.finishUpload(key: connection.key, uploadId: begun.uploadId, sha256: part.sha256)
             switch finished.status {
-            case "verified": return .verified
-            case "duplicate": return .alreadyOnPC
+            case "verified":
+                onProgress?(name, 1.0, 0)
+                return .verified
+            case "duplicate":
+                onProgress?(name, 1.0, 0)
+                return .alreadyOnPC
             default: throw ItemError.failed("The PC did not confirm this photo.")
             }
         } catch let error as ItemError {
@@ -315,9 +490,13 @@ final class BackupModel {
     }
 
     /// The background transfer, as an async call. A full PC disk is reported as `pcFull` so the run stops.
-    private static func transfer(_ request: URLRequest, from file: URL) async throws {
+    private static func transfer(
+        _ request: URLRequest,
+        from file: URL,
+        progress: ((Int64, Int64) -> Void)? = nil
+    ) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            BackgroundUploader.shared.send(request, fromFile: file) { status, error in
+            BackgroundUploader.shared.send(request, fromFile: file, progress: progress) { status, error in
                 if let status, (200..<300).contains(status) {
                     continuation.resume()
                 } else if status == 507 {

@@ -81,15 +81,15 @@ jobs:
           fi
 
       - name: Add Swift to PATH
-        if: hashFiles('ios/Packages/MewtPhotosCore/Package.swift') != '' || hashFiles('ios/MewtPhotos/*.swift') != ''
+        if: hashFiles('ios/Packages/MewtPhotosCore/Package.swift') != '' || hashFiles('ios/MewtPhotos/**/*.swift') != ''
         shell: bash
         run: |
           command -v swift >/dev/null 2>&1 || echo /usr/share/swift/usr/bin >> "$GITHUB_PATH"
 
       - name: Parse app sources
-        if: hashFiles('ios/MewtPhotos/*.swift') != ''
+        if: hashFiles('ios/MewtPhotos/**/*.swift') != ''
         shell: bash
-        run: swiftc -parse ios/MewtPhotos/*.swift
+        run: find ios/MewtPhotos -name '*.swift' -print0 | xargs -0 swiftc -parse
 
       - name: Start the real server
         if: hashFiles('ios/Packages/MewtPhotosCore/Package.swift') != ''

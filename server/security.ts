@@ -52,10 +52,13 @@ export function pickLanAddress(): string | null {
       }
     }
   }
-  const virtual = /vethernet|wsl|virtualbox|vmware|hyper-v|docker|bluetooth|tailscale|zerotier|vpn/i;
+  const virtual = /vethernet|wsl|virtualbox|vmware|hyper-v|docker|br-|virbr|veth|bluetooth|tailscale|zerotier|vpn/i;
   const real = candidates.filter((c) => !virtual.test(c.name));
   const pool = real.length > 0 ? real : candidates;
-  return (pool.find((c) => /wi-?fi|wlan|wireless/i.test(c.name)) ?? pool[0])?.address ?? null;
+  const preferred = process.platform === 'linux'
+    ? pool.find((c) => /^(en|eth)/i.test(c.name)) ?? pool.find((c) => /wi-?fi|wlan|wireless|^wl/i.test(c.name))
+    : pool.find((c) => /wi-?fi|wlan|wireless/i.test(c.name));
+  return (preferred ?? pool[0])?.address ?? null;
 }
 
 // ---- credentials ---------------------------------------------------------

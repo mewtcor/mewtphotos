@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Mewt Photos SHA-256 verification weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -7,6 +7,7 @@ final class BackgroundUploader: NSObject, URLSessionDataDelegate {
     static let shared = BackgroundUploader()
 
     private var completions: [Int: (Int?, Error?) -> Void] = [:]
+    private var progressHandlers: [Int: (Int64, Int64) -> Void] = [:]
 
     private lazy var session: URLSession = {
         let configuration = URLSessionConfiguration.background(withIdentifier: "com.mewtcor.mewtphotos.upload")
@@ -16,16 +17,31 @@ final class BackgroundUploader: NSObject, URLSessionDataDelegate {
         return URLSession(configuration: configuration, delegate: self, delegateQueue: .main)
     }()
 
-    /// Starts the transfer. `completion` gets the HTTP status (nil when there was no answer) and any error.
+    /// Starts the transfer. `progress` receives `(totalBytesSent, totalBytesExpectedToSend)` on the main queue.
+    /// `completion` gets the HTTP status (nil when there was no answer) and any error.
     /// If the app is relaunched after the transfer ends, the completion is lost; a later upload finishes the file.
-    func send(_ request: URLRequest, fromFile file: URL, completion: @escaping (Int?, Error?) -> Void) {
+    func send(
+        _ request: URLRequest,
+        fromFile file: URL,
+        progress: ((Int64, Int64) -> Void)? = nil,
+        completion: @escaping (Int?, Error?) -> Void
+    ) {
         let task = session.uploadTask(with: request, fromFile: file)
+        if let progress {
+            progressHandlers[task.taskIdentifier] = progress
+        }
         completions[task.taskIdentifier] = completion
         task.resume()
     }
 
+    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64,
+                    totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
+        progressHandlers[task.taskIdentifier]?(totalBytesSent, totalBytesExpectedToSend)
+    }
+
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         let status = (task.response as? HTTPURLResponse)?.statusCode
+        progressHandlers.removeValue(forKey: task.taskIdentifier)
         completions.removeValue(forKey: task.taskIdentifier)?(status, error)
     }
 

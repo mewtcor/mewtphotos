@@ -41,6 +41,8 @@ export interface AppOptions {
   lanIp: string | null;
   logFile?: string;
   webDir?: string;
+  /** Run as a headless 24/7 server: never auto-stop when dashboard tabs close. */
+  daemon?: boolean;
   /** Called when the app should shut itself down (dashboard closed, or Stop pressed). */
   onStopRequest?: (reason: string) => void;
   /** Test seam for disk-full behaviour. */
@@ -211,10 +213,47 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
     return { token, deviceId: id };
   });
 
+  function startVerify(): void {
+    if (verifyRunning) throw new HttpError(409, 'verify_running', 'A verification is already running.');
+    verifyRunning = true;
+    void verifyBackup(db, settings.destination, (done, total) => ctx.emit('verify', { done, total }))
+      .then((report) => {
+        const bad = report.missing.length + report.corrupt.length + report.databaseProblems.length;
+        ctx.log(bad ? 'error' : 'info', 'verify_finished', bad
+          ? `Verification found problems: ${report.missing.length} missing, ${report.corrupt.length} corrupted, ${report.databaseProblems.length} database issue(s).`
+          : `Verification passed: all ${report.ok} stored files match their recorded SHA-256.`);
+      })
+      .catch((err: unknown) => ctx.log('error', 'verify_failed', `Verification could not finish: ${err instanceof Error ? err.message : String(err)}`))
+      .finally(() => {
+        verifyRunning = false;
+        ctx.emit('change');
+      });
+  }
+
   app.get(`${API}/status`, async (req): Promise<ClientStatus> => {
     const device = requireDevice(req);
     const freeBytes = await ctx.freeBytes(settings.destination).catch(() => 0);
-    return { deviceName: device.name, serverName: os.hostname(), chunkSize: CHUNK_SIZE, concurrency: settings.concurrency, maxFileBytes: settings.maxFileBytes, freeBytes };
+    const stats = get<{ files: number; bytes: number }>(db, 'SELECT COUNT(*) AS files, COALESCE(SUM(size), 0) AS bytes FROM files')!;
+    const lastVerifyRow = get<{ value: string }>(db, `SELECT value FROM settings WHERE key = 'lastVerify'`);
+    const lastVerifyAt = lastVerifyRow ? ((JSON.parse(lastVerifyRow.value) as VerifyReport).finishedAt ?? null) : null;
+    return {
+      deviceName: device.name,
+      serverName: os.hostname(),
+      chunkSize: CHUNK_SIZE,
+      concurrency: settings.concurrency,
+      maxFileBytes: settings.maxFileBytes,
+      freeBytes,
+      storedFiles: stats.files,
+      storedBytes: stats.bytes,
+      verifyRunning,
+      lastVerifyAt,
+    };
+  });
+
+  app.post(`${API}/verify`, async (req, reply) => {
+    requireDevice(req);
+    startVerify();
+    return reply.code(202).send({ started: true });
   });
 
   function ownSession(req: FastifyRequest, device: DeviceRow): string {
@@ -424,20 +463,7 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
 
   app.post(`${API}/admin/verify`, async (req, reply) => {
     requireAdmin(req);
-    if (verifyRunning) throw new HttpError(409, 'verify_running', 'A verification is already running.');
-    verifyRunning = true;
-    void verifyBackup(db, settings.destination, (done, total) => ctx.emit('verify', { done, total }))
-      .then((report) => {
-        const bad = report.missing.length + report.corrupt.length + report.databaseProblems.length;
-        ctx.log(bad ? 'error' : 'info', 'verify_finished', bad
-          ? `Verification found problems: ${report.missing.length} missing, ${report.corrupt.length} corrupted, ${report.databaseProblems.length} database issue(s).`
-          : `Verification passed: all ${report.ok} stored files match their recorded SHA-256.`);
-      })
-      .catch((err: unknown) => ctx.log('error', 'verify_failed', `Verification could not finish: ${err instanceof Error ? err.message : String(err)}`))
-      .finally(() => {
-        verifyRunning = false;
-        ctx.emit('change');
-      });
+    startVerify();
     return reply.code(202).send({ started: true });
   });
 
@@ -452,7 +478,7 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
   // any dashboard tab is open, a file is being written, or a phone was active moments ago.
   function stopIfDashboardGone(): void {
     clearTimeout(stopTimer);
-    if (dashboards > 0 || !settings.stopWithDashboard || !opts.onStopRequest) return;
+    if (opts.daemon || dashboards > 0 || !settings.stopWithDashboard || !opts.onStopRequest) return;
     const phoneBusy = ctx.active.size > 0 || verifyRunning || Date.now() - lastDeviceActivity < autoStop.deviceQuietMs;
     if (phoneBusy) {
       stopTimer = setTimeout(stopIfDashboardGone, autoStop.recheckMs);

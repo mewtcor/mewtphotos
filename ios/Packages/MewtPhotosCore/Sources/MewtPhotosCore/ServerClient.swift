@@ -26,14 +26,39 @@ public struct ServerStatus: Codable, Equatable, Sendable {
     public let chunkSize: Int
     public let concurrency: Int
     public let maxFileBytes: Int
+    public let freeBytes: Int64?
+    public let storedFiles: Int?
+    public let storedBytes: Int64?
+    public let verifyRunning: Bool?
+    public let lastVerifyAt: Int64?
 
-    public init(deviceName: String, serverName: String, chunkSize: Int, concurrency: Int, maxFileBytes: Int) {
+    public init(
+        deviceName: String,
+        serverName: String,
+        chunkSize: Int,
+        concurrency: Int,
+        maxFileBytes: Int,
+        freeBytes: Int64? = nil,
+        storedFiles: Int? = nil,
+        storedBytes: Int64? = nil,
+        verifyRunning: Bool? = nil,
+        lastVerifyAt: Int64? = nil
+    ) {
         self.deviceName = deviceName
         self.serverName = serverName
         self.chunkSize = chunkSize
         self.concurrency = concurrency
         self.maxFileBytes = maxFileBytes
+        self.freeBytes = freeBytes
+        self.storedFiles = storedFiles
+        self.storedBytes = storedBytes
+        self.verifyRunning = verifyRunning
+        self.lastVerifyAt = lastVerifyAt
     }
+}
+
+struct VerifyReply: Decodable {
+    let started: Bool
 }
 
 struct PairBody: Encodable {
@@ -146,6 +171,13 @@ public struct ServerClient: Sendable {
     public func status(key: DeviceKey) async throws -> ServerStatus {
         try decode(ServerStatus.self, from: try await perform(
             "GET", "api/v1/status", headers: ["Authorization": "Bearer \(key.revealForAuthorization())"]))
+    }
+
+    /// Starts a full SHA-256 verification pass on the server.
+    @discardableResult
+    public func triggerVerify(key: DeviceKey) async throws -> Bool {
+        try decode(VerifyReply.self, from: try await perform(
+            "POST", "api/v1/verify", headers: ["Authorization": "Bearer \(key.revealForAuthorization())"])).started
     }
 
     /// Trim, then drop whole trailing Characters until the name fits in 80 UTF-16 code units,

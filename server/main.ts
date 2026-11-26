@@ -10,9 +10,10 @@ import { pickLanAddress } from './security.ts';
 
 const port = Number(process.env.MEWTPHOTOS_PORT ?? 8787);
 const lanIp = process.env.MEWTPHOTOS_HOST ?? pickLanAddress();
+const daemon = process.env.MEWTPHOTOS_DAEMON === '1' || process.argv.includes('--daemon');
 const dashboard = `http://127.0.0.1:${port}/dashboard`;
 const openDashboard = () => {
-  if (process.platform === 'win32' && !process.argv.includes('--no-open')) {
+  if (!daemon && process.platform === 'win32' && !process.argv.includes('--no-open')) {
     spawn('cmd', ['/c', 'start', '', dashboard], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
   }
 };
@@ -35,7 +36,7 @@ mkdirSync(dir, { recursive: true });
 const logFile = path.join(dir, 'server.log');
 
 const db = openDb(dbFile(dir));
-const { app, ctx, pairing, listen } = await buildApp({ db, port, lanIp, logFile, onStopRequest: (reason) => void shutdown(reason) });
+const { app, ctx, pairing, listen } = await buildApp({ db, port, lanIp, logFile, daemon, onStopRequest: (reason) => void shutdown(reason) });
 
 try {
   await listen();
@@ -71,9 +72,11 @@ if (lanIp) {
   console.log('  Connect this PC to the same Wi-Fi as the iPhone and restart.');
 }
 console.log(`\n  Log file: ${logFile}`);
-console.log(ctx.settings().stopWithDashboard
-  ? '  To stop: close the dashboard tab (the app waits for any running backup), or press Ctrl+C.\n'
-  : '  Press Ctrl+C to stop.\n');
+console.log(daemon
+  ? '  Running in 24/7 daemon mode (MEWTPHOTOS_DAEMON=1). Send SIGTERM or press Ctrl+C to stop.\n'
+  : ctx.settings().stopWithDashboard
+    ? '  To stop: close the dashboard tab (the app waits for any running backup), or press Ctrl+C.\n'
+    : '  Press Ctrl+C to stop.\n');
 
 openDashboard();
 

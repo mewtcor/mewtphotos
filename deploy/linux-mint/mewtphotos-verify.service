@@ -1,0 +1,13 @@
+[Unit]
+Description=Mewt Photos SHA-256 Backup Integrity Check
+After=mewtphotos.service
+
+[Service]
+Type=oneshot
+User=mewtphotos
+Group=mewtphotos
+WorkingDirectory=/opt/mewtphotos
+EnvironmentFile=/etc/mewtphotos.env
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning /opt/mewtphotos/server/verify-cli.ts
+StandardOutput=journal
+StandardError=journal

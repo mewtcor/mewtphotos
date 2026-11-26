@@ -22,7 +22,7 @@ To stop, just close the dashboard tab (the app waits for any running backup) or 
 
 Next time: start the app, open the saved page on the iPhone (Share → Add to Home Screen), pick, done.
 
-Guides: [Windows setup](docs/setup-windows.md) · [Troubleshooting](docs/troubleshooting.md) ·
+Guides: [Windows setup](docs/setup-windows.md) · [Mac mini (Linux Mint) setup](docs/setup-linux-mint.md) · [Troubleshooting](docs/troubleshooting.md) ·
 [Apple Shortcut](docs/ios-shortcut.md) · [iPhone test checklist](docs/iphone-test-checklist.md) ·
 [API](docs/api.md) · [Native iOS roadmap](docs/ROADMAP_IOS_COMPANION.md) ·
 [Install the iPhone app](docs/ios-install.md) · [iOS build log](docs/ios-builds.md)
