@@ -11,7 +11,7 @@ Docs: `README.md`, `docs/` (`api.md`, `ios-install.md`, `ios-builds.md`, `troubl
 ## Constraints
 
 - **Free:** no paid Apple membership, no Mac. iOS builds run only on GitHub Actions macOS runners; the free allowance is roughly 20–40 builds a month, so builds must be few and deliberate.
-- **Install:** unsigned `.ipa` via AltStore with a free Apple ID (7-day expiry).
+- **Install:** unsigned `.ipa` via AltStore with a free Apple ID (7-day expiry). When copying an `.ipa` into iCloud Drive (`MewtPhotos\`), always include the build number in the filename: `MewtPhotos-b<build>.ipa` (e.g. `MewtPhotos-b41.ipa`).
 - **No on-device debugger:** the app needs good in-app logging and log export.
 - **Server compatibility:** reuse `/api/v1`; server changes must be small, additive and covered by tests.
 - **Platform:** iOS 18+, Windows 11. Plain HTTP on the LAN (ATS local-networking exception).
