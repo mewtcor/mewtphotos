@@ -1,4 +1,6 @@
-# PhotoSync
+# Mewt Photos
+
+The iOS app is "Mewt Photos": bundle ID `com.mewtcor.mewtphotos`, product and `.ipa` name `MewtPhotos`, icon source in `ios/art/` (`python ios/art/render.py` rebuilds the asset-catalog PNG).
 
 Backs up an iPhone's photos and videos to a Windows PC over home Wi-Fi: no cloud, no cost. A Node server on the PC receives, verifies and files the media; the phone side is a native iOS app (`ios/`), with the older Safari page (`web/`) still served. Personal tool: one user, one iPhone, one PC.
 
@@ -9,7 +11,7 @@ Docs: `README.md`, `docs/` (`api.md`, `ios-install.md`, `ios-builds.md`, `troubl
 ## Constraints
 
 - **Free:** no paid Apple membership, no Mac. iOS builds run only on GitHub Actions macOS runners; the free allowance is roughly 20–40 builds a month, so builds must be few and deliberate.
-- **Install:** unsigned `.ipa` via AltStore with a free Apple ID (7-day expiry).
+- **Install:** unsigned `.ipa` via AltStore with a free Apple ID (7-day expiry). When copying an `.ipa` into iCloud Drive (`MewtPhotos\`), always include the build number in the filename: `MewtPhotos-b<build>.ipa` (e.g. `MewtPhotos-b41.ipa`).
 - **No on-device debugger:** the app needs good in-app logging and log export.
 - **Server compatibility:** reuse `/api/v1`; server changes must be small, additive and covered by tests.
 - **Platform:** iOS 18+, Windows 11. Plain HTTP on the LAN (ATS local-networking exception).
@@ -26,18 +28,18 @@ npm run typecheck    # tsc --noEmit (the only lint)
 npm run build        # Vite -> web/dist; required after any web/src change
 npm run dev:web      # Vite dev server, proxies /api to 127.0.0.1:8787
 npm run verify       # re-hash every stored file
-python ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist
+python ios/scripts/check_info_plist.py ios/MewtPhotos/Info.plist
 gh workflow run ios-build.yml   # macOS build, manual only; costs build budget
 ```
 
-`ci.yml` runs free on every push (Windows + Ubuntu): npm test, typecheck, Info.plist check, `swiftc -parse` of the app, and PhotoSyncCore checks against a real server. Let it pass before spending a macOS build. Record each iOS build in `docs/ios-builds.md`.
+`ci.yml` runs free on every push (Windows + Ubuntu): npm test, typecheck, Info.plist check, `swiftc -parse` of the app, and MewtPhotosCore checks against a real server. Let it pass before spending a macOS build. Record each iOS build in `docs/ios-builds.md`.
 
 ## Layout
 
 - `server/`: `main.ts` (entry), `app.ts` (all routes in `buildApp`), `engine.ts` (upload/verify/place, decides "safely stored"), `db.ts` (`node:sqlite`, schema string, `tx`), `config.ts`, `security.ts` (pairing, tokens, `HttpError`, `resolveInside`), `metadata.ts`, `verify.ts`.
 - `shared/schemas.ts`: the API contract (paths, `CHUNK_SIZE`, Zod schemas) for server, web and tests. Add API constants here first.
 - `web/src/`: React dashboard (`/dashboard`) and phone page (`/`).
-- `ios/`: XcodeGen project (`project.yml`), app in `ios/PhotoSync/`, logic in the `ios/Packages/PhotoSyncCore` Swift package.
+- `ios/`: XcodeGen project (`project.yml`), app in `ios/MewtPhotos/`, logic in the `ios/Packages/MewtPhotosCore` Swift package.
 
 ## Rules and gotchas
 

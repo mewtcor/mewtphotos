@@ -19,9 +19,9 @@ created: "2026-10-11"
 
 | Property | Value |
 |----------|-------|
-| **Framework** | Vitest 5.0.3 (server, existing); Swift Testing via `swift test` on `ubuntu-24.04` (PhotoSyncCore); Python plist gate with a CI negative control; GitHub Actions as the harness; human device checklist |
-| **Config file** | `vitest.config.ts` (existing); `ios/Packages/PhotoSyncCore/Package.swift` (Wave 0); `.github/workflows/ci.yml` (Wave 0) |
-| **Quick run command** | `npm test && npm run typecheck && python ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist` |
+| **Framework** | Vitest 5.0.3 (server, existing); Swift Testing via `swift test` on `ubuntu-24.04` (MewtPhotosCore); Python plist gate with a CI negative control; GitHub Actions as the harness; human device checklist |
+| **Config file** | `vitest.config.ts` (existing); `ios/Packages/MewtPhotosCore/Package.swift` (Wave 0); `.github/workflows/ci.yml` (Wave 0) |
+| **Quick run command** | `npm test && npm run typecheck && python ios/scripts/check_info_plist.py ios/MewtPhotos/Info.plist` |
 | **Full suite command** | `git push` then `gh run watch --exit-status` (the `ci.yml` run), plus a manual `ios-build.yml` run |
 | **Estimated runtime** | ~60 seconds local; about 3 to 8 minutes per Linux push-and-watch; about 10 to 25 minutes per Mac build (estimates, measured in Plans 01 and 05) |
 
@@ -46,13 +46,13 @@ Every Swift or workflow check is verified through `bash scripts/ci-watch.sh ci.y
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 01-01-T2 | 01 | 1 | BLD-01 | T-01-01 | Repo is private; lockfile tracked; no secret-like files tracked | smoke | `gh repo view --json isPrivate --jq .isPrivate` prints true; `git ls-files package-lock.json` | ❌ W0 | ⬜ pending |
 | 01-01-T3 | 01 | 1 | BLD-02 | T-01-02, T-01-03 | Every push (no path filter) runs the server tests on Linux, token read-only, minutes bounded by concurrency and one job | CI | `bash scripts/ci-watch.sh ci.yml` | ❌ W0 | ⬜ pending |
-| 01-02-T1 | 02 | 2 | BLD-02 | T-01-06, T-01-08 | Wrong pairing code is refused (403); bad key gets 401; exactly one wrong code per CI run | integration | `bash scripts/ci-watch.sh ci.yml` then `bash scripts/ci-watch.sh ci.yml log 'Test run with [1-9][0-9]* tests?'` (the CI step runs the whole `swift test` once with `PHOTOSYNC_CONTRACT_URL`; step `Contract suite reached the server` confirms from the server's overview that the contract tests paired a device) | ❌ W0 | ⬜ pending |
+| 01-02-T1 | 02 | 2 | BLD-02 | T-01-06, T-01-08 | Wrong pairing code is refused (403); bad key gets 401; exactly one wrong code per CI run | integration | `bash scripts/ci-watch.sh ci.yml` then `bash scripts/ci-watch.sh ci.yml log 'Test run with [1-9][0-9]* tests?'` (the CI step runs the whole `swift test` once with `MEWTPHOTOS_CONTRACT_URL`; step `Contract suite reached the server` confirms from the server's overview that the contract tests paired a device) | ❌ W0 | ⬜ pending |
 | 01-01-T4 | 01 | 1 | BLD-03 | T-01-04 | Missing, blank or non-text permission string names the key and exits non-zero | unit | `python ios/scripts/check_info_plist.py --self-test` (also run in CI) | ❌ W0 | ⬜ pending |
-| 01-05-T2 | 05 | 5 | BLD-03 | T-01-20, T-01-22, T-01-23 | Manual Mac build yields unsigned ipa; fails first on a bad plist; verification never re-dispatches | CI | dispatch is an explicit action (`CONFIRM_MAC_DISPATCH=1 bash scripts/ci-watch.sh ios-build.yml dispatch`, logged to `.ci-tmp/dispatches.log`); verify inspects the recorded run id with `gh run view` and `gh run download RUN -n PhotoSync-ipa`, then `unzip -l` | ❌ W0 | ⬜ pending |
+| 01-05-T2 | 05 | 5 | BLD-03 | T-01-20, T-01-22, T-01-23 | Manual Mac build yields unsigned ipa; fails first on a bad plist; verification never re-dispatches | CI | dispatch is an explicit action (`CONFIRM_MAC_DISPATCH=1 bash scripts/ci-watch.sh ios-build.yml dispatch`, logged to `.ci-tmp/dispatches.log`); verify inspects the recorded run id with `gh run view` and `gh run download RUN -n MewtPhotos-ipa`, then `unzip -l` | ❌ W0 | ⬜ pending |
 | 01-04-T2 | 04 | 4 | BLD-04 | T-01-16, T-01-19 | No entitlements, one bundle ID, no extensions, no Photos framework import | static | `bash scripts/ci-watch.sh ci.yml steps '^iOS static checks$' 1` | ❌ W0 | ⬜ pending |
 | 01-02-T2 | 02 | 2 | BLD-05 | T-01-06 | Device key never reaches a description or dump (type-level) | unit | `bash scripts/ci-watch.sh ci.yml` (suite `DeviceKeyRedactionTests`, selectable with `swift test --filter Redaction`) | ❌ W0 | ⬜ pending |
 | 01-03-T1 | 03 | 3 | BLD-05 | T-01-10 | Real server-issued token and code absent from log, pairing.json and temp files | integration | `bash scripts/ci-watch.sh ci.yml` (contract test greps the `RunLog` snapshots) | ❌ W0 | ⬜ pending |
-| 01-05-T2 | 05 | 5 | BLD-06 | T-01-25 | CFBundleVersion equals the workflow run number; git SHA embedded | static | workflow step (`plutil` equality) plus `python ios/scripts/check_info_plist.py --built .ci-tmp/ipa-A/PhotoSync.ipa` | ❌ W0 | ⬜ pending |
+| 01-05-T2 | 05 | 5 | BLD-06 | T-01-25 | CFBundleVersion equals the workflow run number; git SHA embedded | static | workflow step (`plutil` equality) plus `python ios/scripts/check_info_plist.py --built .ci-tmp/ipa-A/MewtPhotos.ipa` | ❌ W0 | ⬜ pending |
 | 01-02-T2 | 02 | 2 | PAIR-02 | T-01-07 | Strict address parsing (http only, host + optional port) | unit | `bash scripts/ci-watch.sh ci.yml` (suite `ServerAddressTests`) | ❌ W0 | ⬜ pending |
 | 01-03-T1 | 03 | 3 | PAIR-02 | T-01-07 | Typed address and code pair against the real server | integration | `bash scripts/ci-watch.sh ci.yml` (extension of `ServerContractTests`) | ❌ W0 | ⬜ pending |
 | 01-03-T2 | 03 | 3 | PAIR-03 | T-01-11, T-01-13 | Key stored via a single seam; corruption gives "re-pair needed" | unit (fake store) | `bash scripts/ci-watch.sh ci.yml` (suites `PairingStoreTests`, `PairingFlowTests`) | ❌ W0 | ⬜ pending |
@@ -65,10 +65,10 @@ Every Swift or workflow check is verified through `bash scripts/ci-watch.sh ci.y
 
 ## Wave 0 Requirements
 
-- [ ] `ios/Packages/PhotoSyncCore/Package.swift` + `Tests/PhotoSyncCoreTests/{Unit,Contract}` (ServerAddress, DeviceKey redaction, RunLog scrub/rotate, ServerClient with fake transport, PairingStore, contract)
+- [ ] `ios/Packages/MewtPhotosCore/Package.swift` + `Tests/MewtPhotosCoreTests/{Unit,Contract}` (ServerAddress, DeviceKey redaction, RunLog scrub/rotate, ServerClient with fake transport, PairingStore, contract)
 - [ ] `.github/workflows/ci.yml` and `.github/workflows/ios-build.yml`
 - [ ] `ios/scripts/check_info_plist.py` + negative-control CI step
-- [ ] `ios/PhotoSync/Info.plist`, `ios/project.yml`
+- [ ] `ios/MewtPhotos/Info.plist`, `ios/project.yml`
 - [ ] `docs/ios-phase1-device-test.md` (Plan 06 T1) and `.planning/phases/01-build-install-and-pair/01-GATE.md` (Plan 05 T3 skeleton, Plan 06 T3 completion): go/no-go + minutes table
 - [ ] `scripts/ci-watch.sh` (Plan 01 T3): push-and-wait helper used by every verify command in this phase; its `dispatch` mode refuses a Mac workflow without `CONFIRM_MAC_DISPATCH=1` and logs every dispatch to `.ci-tmp/dispatches.log`
 - [ ] `.gitattributes`, `.gitignore` additions

@@ -1,8 +1,8 @@
-# Roadmap: PhotoSync
+# Roadmap: Mewt Photos
 
 ## Overview
 
-PhotoSync already has a working Windows server and a Safari page. This roadmap adds the native iPhone app that
+Mewt Photos already has a working Windows server and a Safari page. This roadmap adds the native iPhone app that
 makes one tap back up everything new as untouched originals, plus a small set of additive server changes. The
 journey: first prove on the real iPhone that an app can be built without a Mac, installed with AltStore, reach the
 PC and read true original bytes (Phases 1-2); upgrade the server so it can be trusted by a native client
@@ -146,6 +146,23 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 8: Interface Redesign
+
+**Goal:** The app looks sleek and modern, in one consistent dark style, without changing what any screen says or does.
+**Mode:** mvp
+**Depends on**: Phase 7
+**Requirements**: none new (visual only; truthfulness and safety rules unchanged)
+**Success Criteria** (what must be TRUE):
+  1. Every screen (home, library, back up, diagnostics) uses the shared theme in `ios/MewtPhotos/Theme.swift`: dark navy surfaces, violet accent, rounded cards, one primary action per screen.
+  2. No wording about what is backed up changed: "verified" and "already on the PC" are still the only success states, and failures and gaps still show with a plain reason.
+  3. Text stays readable at the largest Dynamic Type size and every button is at least 44 pt tall.
+  4. The app shows as "Mewt Photos" with the violet arch-m icon (`ios/art/icon.svg`, rendered by `ios/art/render.py` into the asset catalog); the identity (bundle ID `com.mewtcor.mewtphotos`, folders, files, `.ipa`) uses the new name everywhere; the phone pairs once more after the rename and the PC moves its data folder over by itself.
+  5. On the real iPhone from one AltStore build, all earlier device checks (pair, back up, retry, coverage) still pass.
+
+**Plans**: TBD
+**UI hint**: yes
+**Status**: Built (build 38) and checked on the phone 2026-10-26; PR 1 still to merge.
+
 ## Progress
 
 **Execution Order:**
@@ -162,6 +179,7 @@ start until the Phase 2 go/no-go note says go.
 | 5. Back Up Photos | Gate: go | Complete | 2026-10-13 |
 | 6. Videos, Live Photos, iCloud and Retry | Gate: go, with gaps | Complete (gaps recorded) | 2026-10-13 |
 | 7. Coverage Report | Gate: go | Complete | 2026-10-13 |
+| 8. Interface Redesign | Device check passed, PR 1 to merge | In progress | - |
 
 ## Planning Notes
 

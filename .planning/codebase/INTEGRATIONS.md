@@ -17,7 +17,7 @@ The app is intentionally self-contained: no cloud service, no account, no third-
 **Client-side browser APIs used by the phone page (`web/src/`):**
 - `XMLHttpRequest` - chunk uploads with progress (`web/src/uploader.ts`). Chosen because it is the only way to get upload progress in Safari.
 - `fetch` - JSON API calls (`web/src/api.ts`).
-- `localStorage` - stores the device credential under key `photosync.deviceToken` (`web/src/api.ts`).
+- `localStorage` - stores the device credential under key `mewtphotos.deviceToken` (`web/src/api.ts`).
 - `EventSource` (Server-Sent Events) - live dashboard updates from `GET /api/v1/admin/events` (`server/app.ts`, line ~427).
 - Browser file picker (`<input type="file">`) - source of photos and videos on the iPhone (`web/src/Phone.tsx`).
 
@@ -25,7 +25,7 @@ The app is intentionally self-contained: no cloud service, no account, no third-
 
 **Databases:**
 - SQLite, embedded, via Node's built-in `node:sqlite` (`DatabaseSync`).
-  - File: `photosync.db` inside the data directory (`%LOCALAPPDATA%\PhotoSync` by default, override with `PHOTOSYNC_DATA_DIR`). Path built in `server/main.ts`, opened in `server/db.ts` (`openDb`).
+  - File: `mewtphotos.db` inside the data directory (`%LOCALAPPDATA%\MewtPhotos` by default, override with `MEWTPHOTOS_DATA_DIR`). Path built in `server/main.ts`, opened in `server/db.ts` (`openDb`).
   - Client: none; raw SQL in `server/db.ts` (schema) and `server/engine.ts`, `server/app.ts`.
   - Journal: WAL, `synchronous=FULL`, `foreign_keys=ON`, `busy_timeout=5000`.
   - Tables: `settings`, `devices`, `sessions`, `files` (one row per distinct SHA-256), `uploads` (one row per transfer attempt), `logs`.
@@ -34,7 +34,7 @@ The app is intentionally self-contained: no cloud service, no account, no third-
 **File Storage:**
 - Local filesystem only. Photos and videos are written to the configured backup folder (default `<Pictures>\iPhone Backup`), organized as `YYYY\MM\` (`server/engine.ts`, `server/metadata.ts`).
 - Partial uploads are staged in `<backup folder>\.incoming` before an atomic rename into place (`server/engine.ts`).
-- Probe file `.photosync-write-test-<pid>` is written and removed to validate a destination (`server/config.ts`, `validateDestination()`).
+- Probe file `.mewtphotos-write-test-<pid>` is written and removed to validate a destination (`server/config.ts`, `validateDestination()`).
 - Free space is checked with `statfs` (`server/app.ts`); quota enforced against SQLite totals (`server/engine.ts`).
 - No cloud storage, no object store, no network share adapters (a UNC or mapped drive works only because it is a normal path to Node's `fs`).
 
@@ -82,12 +82,12 @@ The app is intentionally self-contained: no cloud service, no account, no third-
 - None. The app runs with defaults.
 
 **Optional env vars:**
-- `PHOTOSYNC_PORT` - listening port (default `8787`).
-- `PHOTOSYNC_HOST` - LAN address override for the iPhone URL and QR code.
-- `PHOTOSYNC_DATA_DIR` - database and log directory.
+- `MEWTPHOTOS_PORT` - listening port (default `8787`).
+- `MEWTPHOTOS_HOST` - LAN address override for the iPhone URL and QR code.
+- `MEWTPHOTOS_DATA_DIR` - database and log directory.
 
 **Secrets location:**
-- No application secrets are configured by the operator. The device tokens are generated at pairing time; the PC keeps only hashes in `photosync.db` (inside the data directory, outside the repo). The phone keeps its token in Safari `localStorage`.
+- No application secrets are configured by the operator. The device tokens are generated at pairing time; the PC keeps only hashes in `mewtphotos.db` (inside the data directory, outside the repo). The phone keeps its token in Safari `localStorage`.
 - No `.env` files detected in the project root.
 
 ## Webhooks & Callbacks

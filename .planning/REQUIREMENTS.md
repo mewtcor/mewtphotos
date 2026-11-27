@@ -1,4 +1,4 @@
-# Requirements: PhotoSync
+# Requirements: Mewt Photos
 
 **Defined:** 2026-10-11
 **Core Value:** Every photo and video on the iPhone reaches the PC as its untouched original — including both halves of Live Photos — and nothing is ever reported as backed up unless the PC has verified it.
@@ -12,79 +12,79 @@ Requirements for the first usable native iPhone app. Each maps to one roadmap ph
 
 - [x] **BLD-01**: The whole project (server, web pages, iOS app) lives in a private GitHub repository with the lockfile committed
 - [x] **BLD-02**: Every push runs the server tests and the iOS logic-package tests on a Linux runner, including a contract test against the real server
-- [ ] **BLD-03**: User can start a Mac build manually and download an unsigned `.ipa`; the build fails early if a required permission text is missing from the app
-- [ ] **BLD-04**: User can install the `.ipa` on the iPhone with the existing AltStore setup, and re-installing keeps the same app (one fixed bundle ID, no extensions, no entitlements)
-- [ ] **BLD-05**: User can export the app's log from the iPhone (share sheet or Files) and it never contains the device key
-- [ ] **BLD-06**: User can see the installed app version and build in the app
-- [ ] **BLD-07**: The Mac build minutes billed per build are measured and recorded after the first builds
+- [x] **BLD-03**: User can start a Mac build manually and download an unsigned `.ipa`; the build fails early if a required permission text is missing from the app
+- [x] **BLD-04**: User can install the `.ipa` on the iPhone with the existing AltStore setup, and re-installing keeps the same app (one fixed bundle ID, no extensions, no entitlements)
+- [x] **BLD-05**: User can export the app's log from the iPhone (share sheet or Files) and it never contains the device key
+- [x] **BLD-06**: User can see the installed app version and build in the app
+- [x] **BLD-07**: The Mac build minutes billed per build are measured and recorded after the first builds *(Note: recorded as an estimate (about 10 macOS minutes per build), not a billed figure)*
 
 ### Feasibility (go / no-go on the real iPhone)
 
-- [ ] **FEAS-01**: The app reaches the PC over plain HTTP on the home network from an AltStore-installed build, and the device key survives relaunch and an AltStore refresh
-- [ ] **FEAS-02**: A diagnostics screen lists, for sample items (HEIC, ProRAW/RAW, Live Photo, edited photo, burst, slow-motion, HDR video, iCloud-only item), every stored part with its type, filename, format and size
-- [ ] **FEAS-03**: Files exported by the app are byte-identical (same SHA-256) to the originals copied over USB, for at least four kinds of item
-- [ ] **FEAS-04**: Native video upload speed to the PC is measured and is clearly faster than the 0.5 MB/s seen in Safari; chunk size and behaviour on screen lock are recorded
-- [ ] **FEAS-05**: Behaviour for iCloud-only items, hidden items (with the Hidden album locked) and burst frames is observed and recorded before features are designed around it
+- [x] **FEAS-01**: The app reaches the PC over plain HTTP on the home network from an AltStore-installed build, and the device key survives relaunch and an AltStore refresh
+- [x] **FEAS-02**: A diagnostics screen lists, for sample items (HEIC, ProRAW/RAW, Live Photo, edited photo, burst, slow-motion, HDR video, iCloud-only item), every stored part with its type, filename, format and size
+- [x] **FEAS-03**: Files exported by the app are byte-identical (same SHA-256) to the originals copied over USB, for at least four kinds of item
+- [x] **FEAS-04**: Native video upload speed to the PC is measured and is clearly faster than the 0.5 MB/s seen in Safari; chunk size and behaviour on screen lock are recorded
+- [ ] **FEAS-05**: Behaviour for iCloud-only items, hidden items (with the Hidden album locked) and burst frames is observed and recorded before features are designed around it *(Partial: burst frames observed; hidden items seen as 0; iCloud-only item not tested)*
 
 ### Pairing
 
-- [ ] **PAIR-01**: User can pair by scanning the QR code shown on the PC dashboard
+- [x] **PAIR-01**: User can pair by scanning the QR code shown on the PC dashboard
 - [x] **PAIR-02**: User can pair by typing the PC address and pairing code instead
-- [ ] **PAIR-03**: The device key is stored in the iPhone Keychain and pairing is remembered across launches
-- [ ] **PAIR-04**: When the PC cannot be reached, the app names the likely cause in plain English (different Wi-Fi, PC app not running, firewall, Local Network permission off) and links to Settings where relevant
-- [ ] **PAIR-05**: User can see which PC is paired, edit its address, and forget it to pair again
+- [x] **PAIR-03**: The device key is stored in the iPhone Keychain and pairing is remembered across launches
+- [x] **PAIR-04**: When the PC cannot be reached, the app names the likely cause in plain English (different Wi-Fi, PC app not running, firewall, Local Network permission off) and links to Settings where relevant
+- [x] **PAIR-05**: User can see which PC is paired, edit its address, and forget it to pair again
 
 ### Library Access
 
-- [ ] **LIB-01**: The app asks for photo library access with a clear explanation and handles denied and restricted states with guidance
-- [ ] **LIB-02**: With limited ("selected photos") access the app shows a persistent warning and will not run a backup or present a result as complete
-- [ ] **LIB-03**: The app notices when access is changed in Settings, at the start of each run and when it returns to the foreground
-- [ ] **LIB-04**: Every run considers the user's whole library, newest first
-- [ ] **LIB-05**: Hidden photos and videos are included in the backup
-- [ ] **LIB-06**: Every frame of a burst is included
-- [ ] **LIB-07**: Shared-album items and Recently Deleted items are not backed up
-- [ ] **LIB-08**: Before starting, user sees how many items are not on the PC yet
+- [x] **LIB-01**: The app asks for photo library access with a clear explanation and handles denied and restricted states with guidance
+- [x] **LIB-02**: With limited ("selected photos") access the app shows a persistent warning and will not run a backup or present a result as complete
+- [x] **LIB-03**: The app notices when access is changed in Settings, at the start of each run and when it returns to the foreground
+- [x] **LIB-04**: Every run considers the user's whole library, newest first
+- [ ] **LIB-05**: Hidden photos and videos are included in the backup *(Gap: the app sees 0 hidden photos, so none are backed up (accepted limit, 05-GATE))*
+- [x] **LIB-06**: Every frame of a burst is included
+- [x] **LIB-07**: Shared-album items and Recently Deleted items are not backed up
+- [x] **LIB-08**: Before starting, user sees how many items are not on the PC yet
 
 ### Originals
 
-- [ ] **ORIG-01**: Every file sent is the stored original, never a converted or re-rendered copy (HEIC stays HEIC, DNG stays DNG, HEVC `.mov` stays as is)
-- [ ] **ORIG-02**: Every original part of an item is backed up: photo, video, Live Photo video, RAW alongside JPEG/HEIC, and audio
-- [ ] **ORIG-03**: Slow-motion, HDR / Dolby Vision, Cinematic and ProRes videos arrive as their original files
-- [ ] **ORIG-04**: Files keep their original names; two different items with the same name are both stored and neither is treated as already backed up
-- [ ] **ORIG-05**: The app checks the iPhone's free space before exporting, exports one item at a time, and removes its temporary copies on every path, including after failures and at launch
+- [x] **ORIG-01**: Every file sent is the stored original, never a converted or re-rendered copy (HEIC stays HEIC, DNG stays DNG, HEVC `.mov` stays as is)
+- [ ] **ORIG-02**: Every original part of an item is backed up: photo, video, Live Photo video, RAW alongside JPEG/HEIC, and audio *(Partial: video and both Live Photo halves verified; a RAW beside a JPEG was not tested (the camera saves one DNG))*
+- [ ] **ORIG-03**: Slow-motion, HDR / Dolby Vision, Cinematic and ProRes videos arrive as their original files *(Parked: slow-motion, HDR / Dolby Vision, Cinematic and ProRes not checked; owner parked 2026-10-13)*
+- [x] **ORIG-04**: Files keep their original names; two different items with the same name are both stored and neither is treated as already backed up
+- [x] **ORIG-05**: The app checks the iPhone's free space before exporting, exports one item at a time, and removes its temporary copies on every path, including after failures and at launch
 
 ### Live Photos
 
-- [ ] **LIVE-01**: A Live Photo arrives as two files with the same base name in the same folder on the PC
-- [ ] **LIVE-02**: A Live Photo is shown as backed up only when both files are verified by the PC
+- [x] **LIVE-01**: A Live Photo arrives as two files with the same base name in the same folder on the PC
+- [x] **LIVE-02**: A Live Photo is shown as backed up only when both files are verified by the PC
 
 ### iCloud
 
-- [ ] **CLOUD-01**: Items stored only in iCloud are downloaded and backed up, with a visible "downloading from iCloud" state and progress
-- [ ] **CLOUD-02**: A download that stalls or fails is abandoned after a timeout, marked unavailable with a reason, and the run continues
-- [ ] **CLOUD-03**: Unavailable items are never counted as backed up and are listed separately
+- [ ] **CLOUD-01**: Items stored only in iCloud are downloaded and backed up, with a visible "downloading from iCloud" state and progress *(Parked: iCloud-only items are listed as unavailable, not downloaded; owner parked 2026-10-13)*
+- [ ] **CLOUD-02**: A download that stalls or fails is abandoned after a timeout, marked unavailable with a reason, and the run continues *(Parked: iCloud-only items are listed as unavailable, not downloaded; owner parked 2026-10-13)*
+- [ ] **CLOUD-03**: Unavailable items are never counted as backed up and are listed separately *(Parked: iCloud-only items are listed as unavailable, not downloaded; owner parked 2026-10-13)*
 
 ### Upload
 
-- [ ] **UP-01**: Items already on the PC are skipped without sending their data, both by item identity and by content
-- [ ] **UP-02**: After the app is deleted and re-installed, the next run rediscovers what is already on the PC and sends nothing twice
-- [ ] **UP-03**: A large video interrupted mid-transfer continues from where it stopped instead of restarting
-- [ ] **UP-04**: When the app is sent to the background, the screen locks, Wi-Fi drops or the PC app restarts, the run shows "paused" and continues when conditions return
-- [ ] **UP-05**: The screen stays awake during a run and the app tells the user to keep it open
-- [ ] **UP-06**: One failing item never stops the run; short-lived network errors are retried automatically
-- [ ] **UP-07**: User can stop a run at any time and a later run picks up cleanly
-- [ ] **UP-08**: When the PC reports it is out of space, the run stops with a clear message instead of failing item by item
-- [ ] **UP-09**: The PC app does not shut itself down while an app backup is in progress
+- [x] **UP-01**: Items already on the PC are skipped without sending their data, both by item identity and by content
+- [x] **UP-02**: After the app is deleted and re-installed, the next run rediscovers what is already on the PC and sends nothing twice
+- [x] **UP-03**: A large video interrupted mid-transfer continues from where it stopped instead of restarting
+- [ ] **UP-04**: When the app is sent to the background, the screen locks, Wi-Fi drops or the PC app restarts, the run shows "paused" and continues when conditions return *(Gap: no "paused" message and no automatic resume; a tap on Back up now continues (06-GATE))*
+- [x] **UP-05**: The screen stays awake during a run and the app tells the user to keep it open
+- [x] **UP-06**: One failing item never stops the run; short-lived network errors are retried automatically
+- [x] **UP-07**: User can stop a run at any time and a later run picks up cleanly
+- [x] **UP-08**: When the PC reports it is out of space, the run stops with a clear message instead of failing item by item
+- [x] **UP-09**: The PC app does not shut itself down while an app backup is in progress
 
 ### Reporting
 
-- [ ] **REP-01**: During a run user sees the current item, item N of M, and what is happening (checking, downloading from iCloud, preparing, sending, verifying on PC)
-- [ ] **REP-02**: At the end user sees totals that add up — considered = already on PC + newly verified + failed + unavailable — and the verified count equals the PC's own count; any mismatch is shown
-- [ ] **REP-03**: User sees a list of every failed or unavailable item with its name, date and reason
-- [ ] **REP-04**: User can retry all failed items or a single one
-- [ ] **REP-05**: Errors are worded in plain English
-- [ ] **REP-06**: The last run's result is shown when the app is opened
-- [ ] **REP-07**: The result states plainly that edited versions of photos are not yet backed up
+- [x] **REP-01**: During a run user sees the current item, item N of M, and what is happening (checking, downloading from iCloud, preparing, sending, verifying on PC)
+- [x] **REP-02**: At the end user sees totals that add up — considered = already on PC + newly verified + failed + unavailable — and the verified count equals the PC's own count; any mismatch is shown
+- [x] **REP-03**: User sees a list of every failed or unavailable item with its name, date and reason
+- [x] **REP-04**: User can retry all failed items or a single one
+- [x] **REP-05**: Errors are worded in plain English
+- [x] **REP-06**: The last run's result is shown when the app is opened
+- [x] **REP-07**: The result states plainly that edited versions of photos are not yet backed up
 
 ### PC Server
 
@@ -125,7 +125,7 @@ Deferred. Tracked but not in the current roadmap.
 
 ### Coverage
 
-- **COV-01**: User can see a full comparison of the phone's library against the PC and a "coverage verified" status
+- ~~**COV-01**~~: Delivered early in Phase 7 (Coverage section on Back up photos)
 
 ## Out of Scope
 
@@ -152,55 +152,55 @@ Which phases cover which requirements. Filled in during roadmap creation.
 |-------------|-------|--------|
 | BLD-01 | Phase 1 | Complete |
 | BLD-02 | Phase 1 | Complete |
-| BLD-03 | Phase 1 | Pending |
-| BLD-04 | Phase 1 | Pending |
-| BLD-05 | Phase 1 | Pending |
-| BLD-06 | Phase 1 | Pending |
-| BLD-07 | Phase 1 | Pending |
-| FEAS-01 | Phase 1 | Pending |
-| FEAS-02 | Phase 2 | Pending |
-| FEAS-03 | Phase 2 | Pending |
-| FEAS-04 | Phase 2 | Pending |
-| FEAS-05 | Phase 2 | Pending |
-| PAIR-01 | Phase 4 | Pending |
+| BLD-03 | Phase 1 | Complete |
+| BLD-04 | Phase 1 | Complete |
+| BLD-05 | Phase 1 | Complete |
+| BLD-06 | Phase 1 | Complete |
+| BLD-07 | Phase 1 | Complete |
+| FEAS-01 | Phase 1 | Complete |
+| FEAS-02 | Phase 2 | Complete |
+| FEAS-03 | Phase 2 | Complete |
+| FEAS-04 | Phase 2 | Complete |
+| FEAS-05 | Phase 2 | Partial |
+| PAIR-01 | Phase 4 | Complete |
 | PAIR-02 | Phase 1 | Complete |
-| PAIR-03 | Phase 1 | Pending |
-| PAIR-04 | Phase 4 | Pending |
-| PAIR-05 | Phase 4 | Pending |
-| LIB-01 | Phase 4 | Pending |
-| LIB-02 | Phase 4 | Pending |
-| LIB-03 | Phase 4 | Pending |
-| LIB-04 | Phase 4 | Pending |
-| LIB-05 | Phase 4 | Pending |
-| LIB-06 | Phase 4 | Pending |
-| LIB-07 | Phase 4 | Pending |
-| LIB-08 | Phase 4 | Pending |
-| ORIG-01 | Phase 5 | Pending |
-| ORIG-02 | Phase 6 | Pending |
-| ORIG-03 | Phase 6 | Pending |
-| ORIG-04 | Phase 5 | Pending |
-| ORIG-05 | Phase 5 | Pending |
-| LIVE-01 | Phase 6 | Pending |
-| LIVE-02 | Phase 6 | Pending |
-| CLOUD-01 | Phase 6 | Pending |
-| CLOUD-02 | Phase 6 | Pending |
-| CLOUD-03 | Phase 6 | Pending |
-| UP-01 | Phase 5 | Pending |
-| UP-02 | Phase 5 | Pending |
-| UP-03 | Phase 6 | Pending |
-| UP-04 | Phase 5 | Pending |
-| UP-05 | Phase 5 | Pending |
-| UP-06 | Phase 5 | Pending |
-| UP-07 | Phase 5 | Pending |
-| UP-08 | Phase 5 | Pending |
-| UP-09 | Phase 5 | Pending |
-| REP-01 | Phase 5 | Pending |
-| REP-02 | Phase 5 | Pending |
-| REP-03 | Phase 5 | Pending |
-| REP-04 | Phase 6 | Pending |
-| REP-05 | Phase 5 | Pending |
-| REP-06 | Phase 5 | Pending |
-| REP-07 | Phase 5 | Pending |
+| PAIR-03 | Phase 1 | Complete |
+| PAIR-04 | Phase 4 | Complete |
+| PAIR-05 | Phase 4 | Complete |
+| LIB-01 | Phase 4 | Complete |
+| LIB-02 | Phase 4 | Complete |
+| LIB-03 | Phase 4 | Complete |
+| LIB-04 | Phase 4 | Complete |
+| LIB-05 | Phase 4 | Gap |
+| LIB-06 | Phase 4 | Complete |
+| LIB-07 | Phase 4 | Complete |
+| LIB-08 | Phase 4 | Complete |
+| ORIG-01 | Phase 5 | Complete |
+| ORIG-02 | Phase 6 | Partial |
+| ORIG-03 | Phase 6 | Parked |
+| ORIG-04 | Phase 5 | Complete |
+| ORIG-05 | Phase 5 | Complete |
+| LIVE-01 | Phase 6 | Complete |
+| LIVE-02 | Phase 6 | Complete |
+| CLOUD-01 | Phase 6 | Parked |
+| CLOUD-02 | Phase 6 | Parked |
+| CLOUD-03 | Phase 6 | Parked |
+| UP-01 | Phase 5 | Complete |
+| UP-02 | Phase 5 | Complete |
+| UP-03 | Phase 6 | Complete |
+| UP-04 | Phase 5 | Gap |
+| UP-05 | Phase 5 | Complete |
+| UP-06 | Phase 5 | Complete |
+| UP-07 | Phase 5 | Complete |
+| UP-08 | Phase 5 | Complete |
+| UP-09 | Phase 5 | Complete |
+| REP-01 | Phase 5 | Complete |
+| REP-02 | Phase 5 | Complete |
+| REP-03 | Phase 5 | Complete |
+| REP-04 | Phase 6 | Complete |
+| REP-05 | Phase 5 | Complete |
+| REP-06 | Phase 5 | Complete |
+| REP-07 | Phase 5 | Complete |
 | SRV-01 | Phase 3 | Complete |
 | SRV-02 | Phase 3 | Complete |
 | SRV-03 | Phase 3 | Complete |
@@ -214,7 +214,8 @@ Which phases cover which requirements. Filled in during roadmap creation.
 - v1 requirements: 59 total
 - Mapped to phases: 59
 - Unmapped: 0
+- Status (2026-10-26): 51 complete, 2 partial, 2 gaps, 4 parked
 
 ---
 *Requirements defined: 2026-10-11*
-*Last updated: 2026-10-11 after roadmap creation (traceability filled)*
+*Last updated: 2026-10-26 after the Phase 8 redesign (statuses re-checked against the phase gates)*

@@ -1,0 +1,25 @@
+[Unit]
+Description=Mewt Photos 24/7 Local Backup Server
+Documentation=file:///opt/mewtphotos/docs/setup-linux-mint.md
+After=network-online.target local-fs.target
+Wants=network-online.target
+# Ensures /mnt/external (external USB drive in /etc/fstab) is mounted before starting.
+RequiresMountsFor=/mnt/external
+
+[Service]
+Type=simple
+User=mewtphotos
+Group=mewtphotos
+WorkingDirectory=/opt/mewtphotos
+EnvironmentFile=/etc/mewtphotos.env
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning /opt/mewtphotos/server/main.ts --daemon
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

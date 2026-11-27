@@ -29,8 +29,8 @@
                 │                                      │
 ┌───────────────▼──────────────┐          ┌────────────▼──────────────────┐
 │ SQLite `server/db.ts`        │          │ Backup folder (user-chosen)   │
-│ %LOCALAPPDATA%\PhotoSync\    │          │ YYYY\MM\…  + .incoming\*.part │
-│ photosync.db                 │          │                               │
+│ %LOCALAPPDATA%\MewtPhotos\    │          │ YYYY\MM\…  + .incoming\*.part │
+│ mewtphotos.db                 │          │                               │
 └───────────────▲──────────────┘          └────────────▲──────────────────┘
                 │                                      │
                 └──────── `server/verify.ts` (re-hash all stored files) ───┘
@@ -84,7 +84,7 @@ Dashboard UI: `web/src/Dashboard.tsx` (talks to /api/v1/admin/* and SSE)
 **Configuration / settings:**
 - Purpose: Load/save the single JSON `settings` row, compute data dir, validate backup folder, discover real Pictures folder.
 - Location: `server/config.ts`
-- Contains: `dataDir()` (env `PHOTOSYNC_DATA_DIR` or `%LOCALAPPDATA%\PhotoSync`), `loadSettings`, `saveSettings`, `validateDestination`, PowerShell call for the Pictures known folder.
+- Contains: `dataDir()` (env `MEWTPHOTOS_DATA_DIR` or `%LOCALAPPDATA%\MewtPhotos`), `loadSettings`, `saveSettings`, `validateDestination`, PowerShell call for the Pictures known folder.
 - Depends on: `server/db.ts`, `server/security.ts`, `shared/schemas.ts` (type)
 - Used by: `server/main.ts`, `server/app.ts`, `server/engine.ts`, `server/verify-cli.ts`
 
@@ -153,7 +153,7 @@ Dashboard UI: `web/src/Dashboard.tsx` (talks to /api/v1/admin/* and SSE)
 
 **State Management:**
 - Server state: SQLite rows (authoritative) plus in-memory `ctx.active` (Set of upload IDs with a writer), `ctx.placing` (promise chain serialising placement), `ctx.bytesIn` (speed display), `settings` (closure variable mirrored to DB), `pairing` (in-memory code), `dashboards` and `stopTimer` (auto-stop bookkeeping).
-- Client state: React `useState`/`useReducer` in `web/src/Phone.tsx` and `web/src/Dashboard.tsx`; device token in `localStorage` key `photosync.deviceToken` (`web/src/api.ts`).
+- Client state: React `useState`/`useReducer` in `web/src/Phone.tsx` and `web/src/Dashboard.tsx`; device token in `localStorage` key `mewtphotos.deviceToken` (`web/src/api.ts`).
 
 ## Key Abstractions
 
@@ -188,7 +188,7 @@ Dashboard UI: `web/src/Dashboard.tsx` (talks to /api/v1/admin/* and SSE)
 
 **Server process:**
 - Location: `server/main.ts`
-- Triggers: `npm start`, `Start Backup.cmd`, `scripts/start-backup.ps1` (sets `PHOTOSYNC_PORT`, passes `--no-open`).
+- Triggers: `npm start`, `Start Backup.cmd`, `scripts/start-backup.ps1` (sets `MEWTPHOTOS_PORT`, passes `--no-open`).
 - Responsibilities: Duplicate-instance check, DB open, `buildApp`, listen, print QR/pairing info, auto-open dashboard on Windows, signal-driven shutdown that closes Fastify then SQLite.
 
 **Verification CLI:**
@@ -250,7 +250,7 @@ Dashboard UI: `web/src/Dashboard.tsx` (talks to /api/v1/admin/* and SSE)
 
 ## Cross-Cutting Concerns
 
-**Logging:** `ctx.log(level, code, message)` in `server/app.ts` writes a row to the `logs` table (capped at 5000 rows, pruned on startup) and to the Fastify file logger at `logFile` (`%LOCALAPPDATA%\PhotoSync\server.log`). Per-request logging is disabled (`LogController`). Logs must never contain keys, pairing codes or file contents (stated in `server/engine.ts` comment on `Ctx.log`).
+**Logging:** `ctx.log(level, code, message)` in `server/app.ts` writes a row to the `logs` table (capped at 5000 rows, pruned on startup) and to the Fastify file logger at `logFile` (`%LOCALAPPDATA%\MewtPhotos\server.log`). Per-request logging is disabled (`LogController`). Logs must never contain keys, pairing codes or file contents (stated in `server/engine.ts` comment on `Ctx.log`).
 
 **Validation:** Zod schemas in `shared/schemas.ts` parsed per route; filename and extension rules in `server/security.ts` (`safeMediaFilename`, `ALLOWED_EXTENSIONS`); path containment via `resolveInside`.
 

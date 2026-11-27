@@ -79,7 +79,7 @@ Existing `describe` groups in `tests/engine.test.ts`: `uploading`, `interrupted 
 ## Test Harness (`tests/helpers.ts`)
 
 **`startServer(settings?, options?, reuse?)`:**
-- Creates a temp root with `mkdtemp(os.tmpdir(), 'photosync-test-')`, a SQLite DB at `<root>/test.db`, and a destination at `<root>/backup`.
+- Creates a temp root with `mkdtemp(os.tmpdir(), 'mewtphotos-test-')`, a SQLite DB at `<root>/test.db`, and a destination at `<root>/backup`.
 - Saves settings with test-friendly defaults (`organizeByDate: false`, `minFreeBytes: 0`, `quotaBytes: 0`, `maxFileBytes: 1 GiB`).
 - Builds the real Fastify app via `buildApp({ db, port: 0, lanIp: null, webDir: <nonexistent> })`. No mocking of the HTTP layer.
 - Pairs a phone automatically: POSTs the current pairing code from `pairing.current().code` to `/api/v1/pair` with `remoteAddress: PHONE_IP` and stores the returned token.

@@ -248,7 +248,10 @@ export async function appendChunk(ctx: Ctx, upload: UploadRow, offset: number, b
       else body.resume(); // discard the rest of this request so the error response can be delivered
       throw err;
     }
-    run(ctx.db, 'UPDATE uploads SET updated_at = ? WHERE id = ?', Date.now(), upload.id);
+    const now = Date.now();
+    if (now - upload.updated_at >= 5_000) {
+      run(ctx.db, 'UPDATE uploads SET updated_at = ? WHERE id = ?', now, upload.id);
+    }
     return await currentOffset(upload);
   } catch (err) {
     throw classify(ctx, upload.filename, err);
@@ -346,11 +349,18 @@ async function place(ctx: Ctx, upload: UploadRow, sha256: string, e2e: boolean, 
   await mkdir(dir, { recursive: true });
 
   // Collision-safe name: never replace a different file; adopt an identical one.
+  // Match case-insensitively even on Linux ext4 so backups stay portable across Windows/macOS/Linux.
+  const dirEntries = await readdir(dir).catch(() => [] as string[]);
+  const existingByLower = new Map<string, string>();
+  for (const name of dirEntries) existingByLower.set(name.toLowerCase(), name);
+
   const { name: stem, ext } = path.parse(upload.filename);
   let target = '';
   let adopted = false;
   if (mate) {
-    const candidate = resolveInside(dir, `${path.parse(mate.path).name}${ext}`);
+    const desiredName = `${path.parse(mate.path).name}${ext}`;
+    const existingName = existingByLower.get(desiredName.toLowerCase());
+    const candidate = resolveInside(dir, existingName ?? desiredName);
     const st = await statOrNull(candidate);
     if (!st) target = candidate;
     else if (st.isFile() && st.size === upload.size && (await hashFile(candidate)) === sha256) {
@@ -364,8 +374,10 @@ async function place(ctx: Ctx, upload: UploadRow, sha256: string, e2e: boolean, 
     for (let n = 1; n <= 10_000 && !target; n++) {
       const stemN = n === 1 ? stem : `${stem} (${n})`;
       // A pair's first part also needs the other part's name free, so the two still match when stored.
-      if (pairExt && (await statOrNull(resolveInside(dir, `${stemN}${pairExt}`)))) continue;
-      const candidate = resolveInside(dir, `${stemN}${ext}`);
+      if (pairExt && existingByLower.has(`${stemN}${pairExt}`.toLowerCase())) continue;
+      const desiredName = `${stemN}${ext}`;
+      const existingName = existingByLower.get(desiredName.toLowerCase());
+      const candidate = resolveInside(dir, existingName ?? desiredName);
       const st = await statOrNull(candidate);
       if (!st) target = candidate;
       else if (st.isFile() && st.size === upload.size && (await hashFile(candidate)) === sha256) {

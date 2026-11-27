@@ -6,9 +6,9 @@ tags: [swift, swiftui, xcodegen, keychain, pairing, launch-evidence]
 
 requires:
   - phase: 01-build-install-and-pair
-    provides: "PhotoSyncCore pairing flow, stores and run log (01-02, 01-03)"
+    provides: "MewtPhotosCore pairing flow, stores and run log (01-02, 01-03)"
 provides:
-  - "ios/project.yml: one application target, iOS 18, Swift 5 for the app, bundle id com.mewtcor.photosync"
+  - "ios/project.yml: one application target, iOS 18, Swift 5 for the app, bundle id com.mewtcor.mewtphotos"
   - "KeychainDeviceKeyStore: device key in the Keychain, this device only, after first unlock"
   - "AppEnvironment and AppModel: session flags for the app only, launch line, connection check, plain-English states"
   - "ContentView: pairing form, status, version and git SHA, Export log share sheet"
@@ -22,20 +22,20 @@ commits:
 key-files:
   created:
     - ios/project.yml
-    - ios/PhotoSync/PhotoSyncApp.swift
-    - ios/PhotoSync/ContentView.swift
-    - ios/PhotoSync/AppModel.swift
-    - ios/PhotoSync/KeychainDeviceKeyStore.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/LaunchEvidence.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Unit/LaunchEvidenceTests.swift
+    - ios/MewtPhotos/MewtPhotosApp.swift
+    - ios/MewtPhotos/ContentView.swift
+    - ios/MewtPhotos/AppModel.swift
+    - ios/MewtPhotos/KeychainDeviceKeyStore.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/LaunchEvidence.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Unit/LaunchEvidenceTests.swift
   modified:
-    - ios/PhotoSync/Info.plist
+    - ios/MewtPhotos/Info.plist
 
 key-decisions:
-  - "Bundle identifier com.mewtcor.photosync, chosen at the Task 1 checkpoint. Permanent: changing it creates a second App ID and orphans the key."
+  - "Bundle identifier com.mewtcor.mewtphotos, chosen at the Task 1 checkpoint. Permanent: changing it creates a second App ID and orphans the key."
   - "AppEnvironment folded into AppModel.swift, keeping the app at four Swift files plus the environment type (plan allowed this)."
   - "The code field is cleared after every pairing attempt. Core does not say whether a request reached the PC, so 'after any attempt that reached the PC' cannot be honoured exactly. Cost: one re-entry after a network failure."
-  - "Local Network usage text reworded to 'PhotoSync connects to your PC on this Wi-Fi network.' (carry-over from 01-03)."
+  - "Local Network usage text reworded to 'Mewt Photos connects to your PC on this Wi-Fi network.' (carry-over from 01-03)."
 
 requirements-completed: [PAIR-02, PAIR-03, BLD-04, BLD-05, FEAS-01]
 
@@ -44,7 +44,7 @@ status: ci-green-not-compiled
 
 # Plan 01-04 summary
 
-The first app that can pair: a PhotoSync target that stores its key in the Keychain, reports what it found at launch, and exports its log.
+The first app that can pair: a Mewt Photos target that stores its key in the Keychain, reports what it found at launch, and exports its log.
 
 ## Verification
 

@@ -1,8 +1,8 @@
-# PhotoSync
+# Mewt Photos
 
 ## What This Is
 
-PhotoSync backs up an iPhone's photos and videos to a Windows PC over the home Wi-Fi, with no cloud
+Mewt Photos backs up an iPhone's photos and videos to a Windows PC over the home Wi-Fi, with no cloud
 service and no cost. A Windows server (already built) receives, verifies and files the media; today
 the phone side is a Safari page. This project adds a native iPhone app so that one tap backs up
 everything new as untouched originals. It is a personal tool for one user, one iPhone and one PC.

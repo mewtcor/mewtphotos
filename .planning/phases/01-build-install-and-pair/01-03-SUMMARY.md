@@ -6,7 +6,7 @@ tags: [swift, swift-testing, pairing, keychain-seam, runlog, contract-tests]
 
 requires:
   - phase: 01-build-install-and-pair
-    provides: "PhotoSyncCore package, ServerClient, DeviceKey, ServerAddress (01-02)"
+    provides: "MewtPhotosCore package, ServerClient, DeviceKey, ServerAddress (01-02)"
 provides:
   - "DeviceKeyStoring seam with in-memory store and failure injection"
   - "PairingStore: pairing.json schema 1, no secret field, strict re-validation on load"
@@ -21,16 +21,16 @@ commits:
 
 key-files:
   created:
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/DeviceKeyStore.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/PairingStore.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/PairingFlow.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/RunLog.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Contract/PairingFlowContractTests.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Unit/PairingStoreTests.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Unit/RunLogTests.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/DeviceKeyStore.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/PairingStore.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/PairingFlow.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/RunLog.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Contract/PairingFlowContractTests.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Unit/PairingStoreTests.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Unit/RunLogTests.swift
   modified:
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/DeviceKey.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/HTTPTransport.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/DeviceKey.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/HTTPTransport.swift
 
 key-decisions:
   - "The device key is never written to pairing.json; it goes through DeviceKeyStoring only"

@@ -76,9 +76,9 @@
 ## Configuration
 
 **Environment variables (all optional):**
-- `PHOTOSYNC_PORT` - HTTP port, default `8787` (`server/main.ts`). Set by `scripts/start-backup.ps1 -Port` for that process only.
-- `PHOTOSYNC_HOST` - forces the LAN address shown to the iPhone; overrides auto-detection (`server/main.ts`).
-- `PHOTOSYNC_DATA_DIR` - location of `photosync.db` and `server.log`; default `%LOCALAPPDATA%\PhotoSync` (`server/config.ts`).
+- `MEWTPHOTOS_PORT` - HTTP port, default `8787` (`server/main.ts`). Set by `scripts/start-backup.ps1 -Port` for that process only.
+- `MEWTPHOTOS_HOST` - forces the LAN address shown to the iPhone; overrides auto-detection (`server/main.ts`).
+- `MEWTPHOTOS_DATA_DIR` - location of `mewtphotos.db` and `server.log`; default `%LOCALAPPDATA%\MewtPhotos` (`server/config.ts`).
 - `LOCALAPPDATA` / `os.homedir()` - used only to derive the default data directory.
 
 No `.env` loading library is used. No `.env*` files were detected in the repository root.
@@ -110,7 +110,7 @@ No `.env` loading library is used. No `.env*` files were detected in the reposit
 **Production (actual deployment):**
 - Runs as a local foreground process on the Windows PC, started by `Start Backup.cmd`. No server hosting, no container, no service install.
 - Listens on `127.0.0.1` (dashboard) and the PC's private-range LAN address (iPhone), plain HTTP only.
-- Data stored under `%LOCALAPPDATA%\PhotoSync` (SQLite database and log); photos stored under the configured backup folder (default `Pictures\iPhone Backup\YYYY\MM\...`).
+- Data stored under `%LOCALAPPDATA%\MewtPhotos` (SQLite database and log); photos stored under the configured backup folder (default `Pictures\iPhone Backup\YYYY\MM\...`).
 - Client: iOS Safari page reached via QR code; optional Apple Shortcut (`docs/ios-shortcut.md`). No native iOS code exists in the repository (`docs/ROADMAP_IOS_COMPANION.md` is a proposal only).
 
 ---

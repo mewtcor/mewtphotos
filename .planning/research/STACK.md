@@ -1,6 +1,6 @@
 # Technology Stack
 
-**Project:** PhotoSync iOS companion app (native iPhone client for the existing Windows/Node server)
+**Project:** Mewt Photos iOS companion app (native iPhone client for the existing Windows/Node server)
 **Researched:** 2026-10-11
 **Scope:** Only the iOS app and its build/install pipeline. The Windows server is out of scope.
 **Overall confidence:** MEDIUM-HIGH. CI, pricing and AltStore facts were checked against official pages today. Apple API behaviour on a real device (ATS with an IP literal, iCloud downloads) is only verifiable by a spike.
@@ -39,7 +39,7 @@ Confidence tags: HIGH = official doc or runner-image README read today. MEDIUM =
 
 | Tool | Version | Purpose | Why | Confidence |
 |------|---------|---------|-----|------------|
-| **XcodeGen** | **2.46.0** (released 2026-07-16) | Generate `PhotoSync.xcodeproj` from `project.yml` | The only approach that is both Windows-editable and boring: ~40 lines of YAML, `brew install xcodegen` on the runner (not preinstalled), then `xcodegen generate`. Keeps pbxproj merge noise and hand-editing errors out of the repo. Supports Xcode 16+ project formats and synchronized folders. | HIGH (release), MEDIUM (Xcode 26 compatibility not explicitly stated; no known issue) |
+| **XcodeGen** | **2.46.0** (released 2026-07-16) | Generate `MewtPhotos.xcodeproj` from `project.yml` | The only approach that is both Windows-editable and boring: ~40 lines of YAML, `brew install xcodegen` on the runner (not preinstalled), then `xcodegen generate`. Keeps pbxproj merge noise and hand-editing errors out of the repo. Supports Xcode 16+ project formats and synchronized folders. | HIGH (release), MEDIUM (Xcode 26 compatibility not explicitly stated; no known issue) |
 | GitHub Actions runner | **`macos-26`** (arm64, M1 3-4 core standard runner; `macos-latest` currently points to it) | Compile | Pin the label so an image bump does not change Xcode under you. Print `xcodebuild -version` and `swift --version` at the top of every log. | HIGH |
 | `actions/checkout` | **v7** (v7.0.1, 2026-07-20) | Checkout | Current major. | HIGH |
 | `actions/upload-artifact` | **v7** (v7.0.2, 2026-10-07) | Hand the `.ipa` back | Current major. Set `retention-days: 7` and `compression-level: 0` (an `.ipa` is already a zip). | HIGH |
@@ -48,13 +48,13 @@ Confidence tags: HIGH = official doc or runner-image README read today. MEDIUM =
 
 ### Unsigned `.ipa` build recipe (the exact flags)
 
-Use `xcodebuild build` rather than `archive`: the end product is just `Release-iphoneos/PhotoSync.app`.
+Use `xcodebuild build` rather than `archive`: the end product is just `Release-iphoneos/MewtPhotos.app`.
 
 ```bash
 xcodegen generate
 xcodebuild build \
-  -project PhotoSync.xcodeproj \
-  -scheme PhotoSync \
+  -project MewtPhotos.xcodeproj \
+  -scheme MewtPhotos \
   -configuration Release \
   -destination 'generic/platform=iOS' \
   -derivedDataPath build \
@@ -64,12 +64,12 @@ xcodebuild build \
   CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
 
 mkdir -p Payload
-cp -R build/Build/Products/Release-iphoneos/PhotoSync.app Payload/
-zip -qry PhotoSync.ipa Payload      # Payload/ must be the top-level folder in the zip
+cp -R build/Build/Products/Release-iphoneos/MewtPhotos.app Payload/
+zip -qry MewtPhotos.ipa Payload      # Payload/ must be the top-level folder in the zip
 ```
 
 Notes:
-- `CODE_SIGNING_ALLOWED=NO`, `CODE_SIGNING_REQUIRED=NO` and `CODE_SIGN_IDENTITY=""` are the flags documented in Apple forum threads and current guides for unsigned archives. (MEDIUM: forum and guide sources, not executed here.) The first CI build should confirm the output with `unzip -l PhotoSync.ipa | head`.
+- `CODE_SIGNING_ALLOWED=NO`, `CODE_SIGNING_REQUIRED=NO` and `CODE_SIGN_IDENTITY=""` are the flags documented in Apple forum threads and current guides for unsigned archives. (MEDIUM: forum and guide sources, not executed here.) The first CI build should confirm the output with `unzip -l MewtPhotos.ipa | head`.
 - Do not pass an `-exportOptionsPlist`; Apple forum reports say export methods re-sign.
 - The linker still adds an ad-hoc signature to the arm64 binary. That is harmless: AltServer replaces it.
 - If the `.app` path differs, run `ls build/Build/Products/*/` in the workflow; do not guess.
@@ -94,13 +94,13 @@ jobs:
       - run: xcodegen generate
       - run: |   # xcodebuild build ... + Payload zip, as above
       - uses: actions/upload-artifact@v7
-        with: { name: PhotoSync-ipa, path: PhotoSync.ipa, retention-days: 7, compression-level: 0 }
+        with: { name: MewtPhotos-ipa, path: MewtPhotos.ipa, retention-days: 7, compression-level: 0 }
 ```
 
 ### `project.yml` essentials
 
 ```yaml
-name: PhotoSync
+name: MewtPhotos
 options: { deploymentTarget: { iOS: "18.0" }, createIntermediateGroups: true }
 settings:
   base:
@@ -109,17 +109,17 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
 targets:
-  PhotoSync:
+  MewtPhotos:
     type: application
     platform: iOS
-    sources: [PhotoSync]
-    settings: { base: { PRODUCT_BUNDLE_IDENTIFIER: com.<you>.photosync, ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon } }
+    sources: [MewtPhotos]
+    settings: { base: { PRODUCT_BUNDLE_IDENTIFIER: com.<you>.mewtphotos, ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon } }
     info:
-      path: PhotoSync/Info.plist
+      path: MewtPhotos/Info.plist
       properties:
         UILaunchScreen: {}
-        NSPhotoLibraryUsageDescription: "PhotoSync reads your library to back it up to your PC. It never changes or deletes photos."
-        NSLocalNetworkUsageDescription: "PhotoSync sends your photos to your PC on this Wi-Fi network."
+        NSPhotoLibraryUsageDescription: "MewtPhotos reads your library to back it up to your PC. It never changes or deletes photos."
+        NSLocalNetworkUsageDescription: "MewtPhotos sends your photos to your PC on this Wi-Fi network."
         NSCameraUsageDescription: "Used only to scan the pairing QR code shown on your PC."
         NSAppTransportSecurity: { NSAllowsLocalNetworking: true }   # see ATS pitfall in PITFALLS/spike
         UIFileSharingEnabled: true
@@ -140,7 +140,7 @@ No `.entitlements` file at all. The app needs no entitlements, which removes the
 | Latest AltServer for Windows | **1.7.4** (2026-03-24), fixes apps crashing on launch on iOS 26.4 and updates the codesigning library | AltStore release notes, HIGH |
 | Windows prerequisite | iTunes and iCloud installed **from Apple directly** (not the Microsoft Store builds), or the documented folder workaround. User already runs this setup; do not change it. | AltStore troubleshooting guide, HIGH |
 | Installing an `.ipa` | In AltStore: My Apps, then **+**, pick the `.ipa` from Files. Windows-side drag/"Sideload .ipa" menu entries were not confirmed in official docs. | MEDIUM (phone-side flow), LOW (Windows-side) |
-| Bundle ID | AltStore re-signs and rewrites the bundle ID (appends the team ID). Never hardcode `com.you.photosync` anywhere at runtime; use `Bundle.main.bundleIdentifier`. | MEDIUM (known AltStore behaviour) |
+| Bundle ID | AltStore re-signs and rewrites the bundle ID (appends the team ID). Never hardcode `com.you.mewtphotos` anywhere at runtime; use `Bundle.main.bundleIdentifier`. | MEDIUM (known AltStore behaviour) |
 | Capabilities needing a paid team | Not enumerated by Apple's public pages. Commonly cited as unavailable on personal teams: Push Notifications, iCloud/CloudKit, Associated Domains, In-App Purchase, Apple Pay, Sign in with Apple, Game Center, Network Extensions, multicast networking entitlement. | LOW-MEDIUM. Irrelevant to this app as long as it declares no entitlements. |
 | What needs NO entitlement (all Info.plist only) | Photos read access, local network access, camera, background `URLSession`, `BGTaskScheduler`, file sharing, ATS exceptions, `NWBrowser` Bonjour browsing (needs `NSBonjourServices` key only) | MEDIUM |
 | Keychain | Keychain items are scoped to the signing team. Refreshing with the same Apple ID keeps them. Switching Apple ID loses access to the old items, so pairing must be re-doable from scratch. | MEDIUM (inference from Apple keychain model) |
@@ -160,8 +160,8 @@ No `.entitlements` file at all. The app needs no entitlements, which removes the
 | Piece | Choice | Why |
 |-------|--------|-----|
 | Structured logging | `os.Logger`, subsystem from `Bundle.main.bundleIdentifier` | Free, but unreadable without a Mac, so it is only the secondary sink. |
-| **Primary sink** | Own `FileLogger` actor appending lines to `Documents/photosync.log`, rotate at ~2 MB (keep 2 files), every line `ISO-8601 level category message`, flush on every line | Survives crashes and is exportable. Log every state transition, HTTP status, offset, PHAsset error code, and iCloud progress. Never log the device key. |
-| Export path 1 | `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` in Info.plist: log shows under Files, On My iPhone, PhotoSync. | Zero code. Apple forum report: on iOS 18 the folder only appears if `Documents` contains at least one file, so write a log line at first launch. Unverified for AltStore-signed builds, so confirm in the first spike. |
+| **Primary sink** | Own `FileLogger` actor appending lines to `Documents/mewtphotos.log`, rotate at ~2 MB (keep 2 files), every line `ISO-8601 level category message`, flush on every line | Survives crashes and is exportable. Log every state transition, HTTP status, offset, PHAsset error code, and iCloud progress. Never log the device key. |
+| Export path 1 | `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` in Info.plist: log shows under Files, On My iPhone, MewtPhotos. | Zero code. Apple forum report: on iOS 18 the folder only appears if `Documents` contains at least one file, so write a log line at first launch. Unverified for AltStore-signed builds, so confirm in the first spike. |
 | Export path 2 | SwiftUI `ShareLink(item: logFileURL)` in a Settings/Diagnostics screen | AirDrop is unavailable from Windows, but "Save to Files", mail, or sharing to iCloud Drive works. |
 | Export path 3 (recommended, needs a tiny server change) | Best-effort `POST` of log batches to the server (which already has a `logs` table and dashboard events) | Gives live logs on the PC with no export step. Current server has no log-ingest endpoint (routes checked in `server/app.ts`), so this is a small additive server change. |
 | Crash reports | Settings, Privacy and Analytics, Analytics Data on the phone has `.ips` files; `MetricKit` is possible but delayed | Last resort. LOW value without symbolication. |

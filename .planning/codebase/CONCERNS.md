@@ -162,7 +162,7 @@ Scope: full repository (`server/`, `shared/`, `web/src/`, `tests/`, `scripts/`, 
 
 **Single-writer, single-process design:**
 - Files: `server/engine.ts` (`ctx.active` and `ctx.placing` are in-memory)
-- Limit: two instances against one database are prevented only by the port check in `server/main.ts` (lines 20-31). By design, but a second process started with a different `PHOTOSYNC_PORT` would share the database and could corrupt in-flight state.
+- Limit: two instances against one database are prevented only by the port check in `server/main.ts` (lines 20-31). By design, but a second process started with a different `MEWTPHOTOS_PORT` would share the database and could corrupt in-flight state.
 
 **Only a single copy of each backed-up file:**
 - Files: `server/verify.ts` (detects missing and corrupt files; no repair)

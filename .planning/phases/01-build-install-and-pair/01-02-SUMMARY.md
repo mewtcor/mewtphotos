@@ -8,7 +8,7 @@ requires:
   - phase: 01-build-install-and-pair
     provides: "ci.yml with guarded Swift steps, scripts/ci-watch.sh"
 provides:
-  - "Package PhotoSyncCore (Swift 6, tools 6.0, no dependencies) building and testing on ubuntu-24.04"
+  - "Package MewtPhotosCore (Swift 6, tools 6.0, no dependencies) building and testing on ubuntu-24.04"
   - "ServerClient: health(), pair(code:deviceName:), status(key:) with typed errors (server, network, unexpectedResponse, invalidInput)"
   - "DeviceKey: redacting, non-serialisable wrapper for the device key"
   - "ServerAddress.parse: strict typed-address and QR-link parser with plain-English errors"
@@ -32,16 +32,16 @@ tech-stack:
 
 key-files:
   created:
-    - ios/Packages/PhotoSyncCore/Package.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/HTTPTransport.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/DeviceKey.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/ServerClient.swift
-    - ios/Packages/PhotoSyncCore/Sources/PhotoSyncCore/ServerAddress.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Contract/ServerContractTests.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Unit/FakeTransport.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Unit/ServerClientTests.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Unit/ServerAddressTests.swift
-    - ios/Packages/PhotoSyncCore/Tests/PhotoSyncCoreTests/Unit/DeviceKeyRedactionTests.swift
+    - ios/Packages/MewtPhotosCore/Package.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/HTTPTransport.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/DeviceKey.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/ServerClient.swift
+    - ios/Packages/MewtPhotosCore/Sources/MewtPhotosCore/ServerAddress.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Contract/ServerContractTests.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Unit/FakeTransport.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Unit/ServerClientTests.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Unit/ServerAddressTests.swift
+    - ios/Packages/MewtPhotosCore/Tests/MewtPhotosCoreTests/Unit/DeviceKeyRedactionTests.swift
   modified:
     - scripts/ci-watch.sh
 
@@ -58,7 +58,7 @@ coverage:
     requirement: BLD-02
     verification:
       - kind: integration
-        ref: "ServerContractTests.healthIdentifiesPhotoSync, pairThenStatusWithTheIssuedKey in CI run 38168846425 (swift test: 25 tests in 4 suites passed)"
+        ref: "ServerContractTests.healthIdentifiesMewt Photos, pairThenStatusWithTheIssuedKey in CI run 38168846425 (swift test: 25 tests in 4 suites passed)"
         status: pass
     human_judgment: false
   - id: D2
@@ -74,7 +74,7 @@ coverage:
     requirement: BLD-02
     verification:
       - kind: unit
-        ref: "contractBase() records an Issue and throws without PHOTOSYNC_CONTRACT_URL; ci.yml 'Test run with [1-9]' count check passed on the HEAD swift test log"
+        ref: "contractBase() records an Issue and throws without MEWTPHOTOS_CONTRACT_URL; ci.yml 'Test run with [1-9]' count check passed on the HEAD swift test log"
         status: pass
     human_judgment: true
     rationale: "The missing-URL failure path is by construction (Issue.record plus throw); no CI run was made without the variable to see it fail."
@@ -118,7 +118,7 @@ status: complete
 
 # Phase 1 Plan 02: Swift Core package, pairing client and address parser Summary
 
-**PhotoSyncCore (Swift 6, no dependencies) compiles and passes 25 tests on Linux in Actions, including a serialized contract suite that pairs with the unmodified Fastify server, plus a redacting DeviceKey and a strict hand-written ServerAddress parser.**
+**MewtPhotosCore (Swift 6, no dependencies) compiles and passes 25 tests on Linux in Actions, including a serialized contract suite that pairs with the unmodified Fastify server, plus a redacting DeviceKey and a strict hand-written ServerAddress parser.**
 
 ## Performance
 
@@ -191,7 +191,7 @@ None.
 ## Known gaps carried forward
 
 - Nothing here has run on a Darwin toolchain: `URLSessionTransport` and `NetworkFailure` behave as written on Linux, and the iPhone build in Plan 04 is the first Darwin compile of Core under Xcode's Swift.
-- The missing-`PHOTOSYNC_CONTRACT_URL` failure path was not exercised in CI (it is by construction).
+- The missing-`MEWTPHOTOS_CONTRACT_URL` failure path was not exercised in CI (it is by construction).
 - `ServerAddress` does not lower-case hosts; `DESKTOP-AB12` keeps its case. Harmless to URL loading, noted for the Plan 03 pairing store (compare hosts case-insensitively if it ever matters).
 
 ## Threat Flags

@@ -8,7 +8,7 @@ Scope reminder: server features (resumable chunk upload, SHA-256 verify, dedupe,
 
 ## How comparable clients behave (evidence summary)
 
-| Topic | Immich (iOS) | PhotoSync | Nextcloud iOS | Synology Photos | Ente | Takeaway for us |
+| Topic | Immich (iOS) | Mewt Photos | Nextcloud iOS | Synology Photos | Ente | Takeaway for us |
 |-------|--------------|-----------|---------------|-----------------|------|-----------------|
 | Scope | Per-album selection; iOS asset can sit in many albums, so users exclude albums | Whole library or selection; "new" tracking | "Upload all" vs new-only auto-upload | Per-folder backup tasks | Per-album selection (full access expected) | Album pickers create silent gaps. Whole library is the right model for "nothing missed". |
 | Permission | Full access effectively required; stalls reported with odd permission states | n/a in sources | No sources on limited access | No sources | Docs tell user to grant full access | Detect `.limited`, say so loudly, never claim full coverage. |
@@ -46,7 +46,7 @@ Groups are written to be used directly as requirement categories. IDs are sugges
 | LIB-5 | Include hidden assets | Hidden photos are still in the library and the user expects a backup to include them; PhotoKit excludes them by default (`includeHiddenAssets` false) | LOW | **Spike**: confirm fetch works under full access with the Hidden album locked (iOS 16+ Face ID lock). Privacy note: they land in normal date folders on the PC |
 | LIB-6 | Include every burst frame | Default fetch returns only the representative frame; the other frames are library photos the user can still pick later (`includeAllBurstAssets`) | LOW | One flag, but doubles-or-more file count for burst-heavy libraries. Group by `burstIdentifier` only for display, never to skip |
 | LIB-7 | Restrict to the user's own library source type; do not back up Recently Deleted | Shared-album and iTunes-synced assets are not the user's originals; trashed items are not "in the library" | LOW | **Spike**: confirm default `includeAssetSourceTypes` behaviour and set it explicitly |
-| LIB-8 | Pre-run count: "N items not on the PC yet" before tapping Back up now | `/assets/check` in batches answers this before any export; PhotoSync/Immich show remaining counts | LOW-MED | Depends on LIB-4 + server check. Makes "nothing to do" a fast, reassuring path |
+| LIB-8 | Pre-run count: "N items not on the PC yet" before tapping Back up now | `/assets/check` in batches answers this before any export; MewtPhotos/Immich show remaining counts | LOW-MED | Depends on LIB-4 + server check. Makes "nothing to do" a fast, reassuring path |
 | **Originals** | | | | |
 | ORIG-1 | Export via `PHAssetResourceManager.writeData(for:toFile:)` only; never `requestImage`/export sessions/`requestAVAsset` | Only route that returns stored bytes. Anything else re-renders or transcodes (HDR, Dolby Vision, ProRes, Cinematic data) | MED | Hash while writing or after (see UP-1). Byte-for-byte check: phone-side SHA-256 must equal server-side |
 | ORIG-2 | Back up every original-side resource of the asset: `.photo`, `.video`, `.pairedVideo`, `.alternatePhoto`, `.audio` | RAW+JPEG/RAW+HEIC pairs are one asset with an alternate resource; competitors make the user choose RAW/JPEG/both, a backup should take both. ProRAW is a DNG `.photo` | MED | **Spike**: dump resource types/filenames/UTIs for a ProRAW, RAW+JPEG, Live, edited, burst and slo-mo sample on the phone before designing naming |
@@ -58,11 +58,11 @@ Groups are written to be used directly as requirement categories. IDs are sugges
 | LIVE-1 | Upload `.photo` + `.pairedVideo` as two files with the same base name in the same folder | Stated requirement; Immich needed manual relinking tools after pairing broke; Nextcloud's compatibility toggle drops the MOV | MED | Server side: both must land in the same `YYYY\MM`. Pair counts as one item in UI but two resources in the ledger; one half failing means the item is failed, not half-backed-up |
 | LIVE-2 | Show a Live Photo as backed up only when both resources are verified | Truthfulness. Partial pair = not backed up | LOW | Per-resource states roll up to per-asset state |
 | **iCloud-only originals** | | | | |
-| CLOUD-1 | `isNetworkAccessAllowed = true`; show "downloading from iCloud" state with progress | PhotoSync 3.0 and Immich both auto-download; stated requirement | MED | Use `progressHandler`. Keep a distinct state so the user understands slow items |
+| CLOUD-1 | `isNetworkAccessAllowed = true`; show "downloading from iCloud" state with progress | Mewt Photos 3.0 and Immich both auto-download; stated requirement | MED | Use `progressHandler`. Keep a distinct state so the user understands slow items |
 | CLOUD-2 | Per-asset stall/timeout watchdog on download; failure becomes "unavailable" with reason, run continues | Forum reports of downloads stalling at ~50% with network access on; one stuck asset must not freeze the run (Immich 22661 symptom) | MED | There is no API to ask "is this resource local" (Apple engineer); try, and treat failure as the signal. Do not promise an up-front list of iCloud-only items |
 | CLOUD-3 | Never count unavailable items as backed up; list them separately with reason | Core value | LOW | Reasons: not downloadable, iCloud offline, timed out, no space |
 | **Upload & skip logic** | | | | |
-| UP-1 | Skip via server: `/assets/check` by assetId in batches, then `sha256` on create so server answers `duplicate` before any bytes move | Roadmap design; Immich/Synology skip by hash; PhotoSync had to rework id tracking because ids are unreliable | MED | Per-resource ids `<localIdentifier>/<resourceType>` so a later-added resource (edit render) is not masked by the asset being "known". Handle: `localIdentifier` changes after restore/new device, hash covers it |
+| UP-1 | Skip via server: `/assets/check` by assetId in batches, then `sha256` on create so server answers `duplicate` before any bytes move | Roadmap design; Immich/Synology skip by hash; Mewt Photos had to rework id tracking because ids are unreliable | MED | Per-resource ids `<localIdentifier>/<resourceType>` so a later-added resource (edit render) is not masked by the asset being "known". Handle: `localIdentifier` changes after restore/new device, hash covers it |
 | UP-2 | Server is the source of truth; local state is a cache only | AltStore reinstall or app delete wipes local data; a local "done" flag can be wrong | LOW | A fresh install should cheaply rediscover everything via UP-1 (hash cost is the price; acceptable) |
 | UP-3 | Resume large videos from the server's offset (`GET /uploads/:id`, `PATCH` with `Upload-Offset`) | Stated requirement; Safari failed here | MED-HIGH | Persist upload id with the resource id; on relaunch/foreground return, query offset then continue. Stream from file, never load into memory |
 | UP-4 | Foreground interruption handling: app suspended, screen locked, Wi-Fi lost, server restarted | Foreground apps are suspended seconds after leaving the screen; Nextcloud users' most common complaint | MED | Show "Paused: app was in background", auto-resume on foreground. Treat as normal, not an error |
@@ -71,7 +71,7 @@ Groups are written to be used directly as requirement categories. IDs are sugges
 | UP-7 | Stop/cancel button that ends cleanly (in-flight upload resumable later) | Users will interrupt a 3-hour first run | LOW | Cancel must not leave a "receiving" row the dashboard shows forever; rely on resume rather than delete |
 | UP-8 | Sequential uploads (one at a time) | Simplest and kindest to home Wi-Fi/PC disk; keeps progress honest | LOW | Pipelining is a differentiator |
 | **Reporting & retry** | | | | |
-| REP-1 | Live progress: current item name, bytes, item N of M, overall bytes if cheap, phase label (checking / downloading from iCloud / exporting / uploading / verifying) | Immich shows counts; PhotoSync per-transfer progress. Phases matter because export/hash/iCloud time looks like a hang | MED | Spec: UI state derives from the same per-resource states used for results |
+| REP-1 | Live progress: current item name, bytes, item N of M, overall bytes if cheap, phase label (checking / downloading from iCloud / exporting / uploading / verifying) | Immich shows counts; Mewt Photos per-transfer progress. Phases matter because export/hash/iCloud time looks like a hang | MED | Spec: UI state derives from the same per-resource states used for results |
 | REP-2 | Truthful end summary that reconciles: considered = already on PC + newly verified + failed + unavailable (+ skipped by rule, e.g. none). "Verified" equals server-reported | Core value; roadmap truthfulness test. Competitors' counts can drift (remainder stuck) | MED | Show the server session summary next to local numbers; any mismatch is displayed, not hidden |
 | REP-3 | "Needs attention" list: every failed/unavailable item with thumbnail, filename, date, reason | Stated requirement; closest competitor equivalent is a bare remainder number | MED | Thumbnails via PHImageManager are fine for display only (never for backup). Persist across launches |
 | REP-4 | "Retry failed" (all) and per-item retry | Stated requirement | LOW-MED | Retry = re-run the same pipeline for those resource ids; success clears the entry |
@@ -82,15 +82,15 @@ Groups are written to be used directly as requirement categories. IDs are sugges
 
 | ID | Feature | Value Proposition | Complexity | Notes |
 |----|---------|-------------------|------------|-------|
-| DIFF-1 | Back up the edited render too (`.fullSizePhoto`, `.fullSizeVideo`, `.fullSizePairedVideo`) as a sibling file with an Apple-style suffix (e.g. `IMG_E1234`) | If the phone dies, the user loses their crops/filters; the original alone is the "untouched" promise but not what they remember. PhotoSync offers it; Immich users ask for it (discussion 4750) | MED | Strongly recommended as the first post-core addition. Original is always table stakes; the render is additive. Needs per-resource ids (UP-1) and server naming/placement rule so pair+render stay in one folder |
+| DIFF-1 | Back up the edited render too (`.fullSizePhoto`, `.fullSizeVideo`, `.fullSizePairedVideo`) as a sibling file with an Apple-style suffix (e.g. `IMG_E1234`) | If the phone dies, the user loses their crops/filters; the original alone is the "untouched" promise but not what they remember. Mewt Photos offers it; Immich users ask for it (discussion 4750) | MED | Strongly recommended as the first post-core addition. Original is always table stakes; the render is additive. Needs per-resource ids (UP-1) and server naming/placement rule so pair+render stay in one folder |
 | DIFF-2 | Preserve adjustment data (`.adjustmentData`, `.adjustmentBase*`) as sidecar | Lets Photos-on-Mac recreate edits, preserves slo-mo ranges/Portrait depth edits per the Immich thread | MED-HIGH | Opaque Apple plist blob, no use on Windows; server allow-list needs a sidecar type. Defer; the original already contains the pixels |
-| DIFF-3 | Re-back-up assets edited after first backup (modification-date change) | PhotoSync 4.8 does this; otherwise edits made after backup are never captured | MED | Depends on DIFF-1 and per-resource ids. Without DIFF-1 there is nothing new to send |
+| DIFF-3 | Re-back-up assets edited after first backup (modification-date change) | Mewt Photos 4.8 does this; otherwise edits made after backup are never captured | MED | Depends on DIFF-1 and per-resource ids. Without DIFF-1 there is nothing new to send |
 | DIFF-4 | Pipelining: export/hash next item while current uploads | Biggest cheap speed-up on many small photos | MED | Adds concurrency bugs; do after sequential is trusted |
 | DIFF-5 | `PHPersistentChangeToken` incremental scan | Avoids re-enumerating 50k assets | MED-HIGH | Only worth it if full scan + `/assets/check` proves slow. Token expiry needs a full-scan fallback anyway, so the fallback must exist first |
 | DIFF-6 | Resume an interrupted run after app kill, with state restored | Nice after crashes; otherwise just tap Back up now again (UP-1 skips finished work) | LOW-MED | Largely free if UP-3 persists upload ids |
 | DIFF-7 | Estimated bytes / time remaining | Reassurance on first multi-hour run | MED | Resource size is not public API (a KVC key is commonly used; unofficial, LOW confidence). Count-based progress is enough for v1 |
 | DIFF-8 | Wi-Fi-only guard / "PC reachable" indicator on home screen | Prevents confusing cellular failures | LOW | Part of PAIR-3 preflight already |
-| DIFF-9 | Live Photo edited-state handling (render + fullSizePairedVideo) | Completes DIFF-1 | MED | PhotoSync fixed bugs here; test explicitly |
+| DIFF-9 | Live Photo edited-state handling (render + fullSizePairedVideo) | Completes DIFF-1 | MED | Mewt Photos fixed bugs here; test explicitly |
 | DIFF-10 | Library-vs-server reconciliation / "coverage verified" | The true "what is not backed up" view | HIGH | Explicitly deferred by the user |
 
 ### Anti-Features (deliberately NOT building)
@@ -102,7 +102,7 @@ Groups are written to be used directly as requirement categories. IDs are sugges
 | Album picker / per-album backup / album mirroring (Immich-style) | Control and organisation | Assets can sit in many albums; exclusions create silent gaps; contradicts "nothing missed" | Whole library, date folders on PC |
 | Format options: HEIC to JPEG, JPEG+HEIC, Motion-Photo JPEG, "most compatible" | Windows viewers and sharing | Converts or duplicates; this is what broke the Safari path | Install HEIC extension on Windows or convert on the PC later |
 | Compression / "optimise upload size" | Faster Wi-Fi | Violates untouched originals | None |
-| Choose RAW vs JPEG vs both | PhotoSync exposes it | A backup should never drop a resource | Take all resources |
+| Choose RAW vs JPEG vs both | Mewt Photos exposes it | A backup should never drop a resource | Take all resources |
 | Backing up shared-album items or Recently Deleted | "Everything" | Not the user's own library originals; trash is deliberately deleted | User-library source type only |
 | In-app gallery/timeline/search/face grouping | Immich-like experience | Whole separate product; no value to a backup | Windows File Explorer, existing dashboard |
 | Photo picker / manual selection in the app | Safari page has it | Hand-picking is what "Back up now" replaces; selection hides gaps | Keep Safari page for ad hoc sends |
@@ -194,7 +194,7 @@ Suggested build order inside v1: toolchain + logging + pairing + PAIR-3 prefligh
 
 ## Competitor Feature Analysis
 
-| Feature | Immich | PhotoSync | Our Approach |
+| Feature | Immich | Mewt Photos | Our Approach |
 |---------|--------|-----------|--------------|
 | Scope | Selected albums | Library/selection | Whole library, no album choice |
 | Original vs edited | Reports of edited only | User choice, default offers both | Original always; render added in v1.x |
@@ -220,9 +220,9 @@ Suggested build order inside v1: toolchain + logging + pairing + PAIR-3 prefligh
 - [Immich discussion 4750: edited photos on iPhone](https://github.com/immich-app/immich/discussions/4750) (edited-only upload, lost Portrait/slo-mo data, no maintainer decision). MEDIUM (user reports)
 - [Immich issue 22661](https://github.com/immich-app/immich/issues/22661) and [issue 9129](https://github.com/immich-app/immich/issues/9129) (stalled backup, filename-collision skips). LOW-MEDIUM (user reports)
 - [Linuxiac on Immich 1.115](https://linuxiac.com/immich-1-115-released/) (manual Live Photo linking on iOS). MEDIUM
-- [PhotoSync 4.9.5 release notes](https://www.photosync-app.com/support/release-notes/photosync-4-9-5-for-ios-released) (Live Photo format options, new unique-id tracking). HIGH for vendor behaviour
-- [PhotoSync 4.8 release notes](https://www.photosync-app.com/support/release-notes/photosync-4-8-for-ios-released) (re-transfer edited items, original/edited/both, RAW/JPEG choice, HEIC+JPEG). HIGH for vendor behaviour
-- [PhotoSync 3.0 release notes](https://www.photosync-app.com/support/release-notes/photosync-3-0-for-ios-released) and [3.2.3](https://www.photosync-app.com/support/release-notes/photosync-3-2-3-for-ios-released) (bursts, iCloud auto-download, edited Live Photo video fix). HIGH for vendor behaviour
+- [Mewt Photos 4.9.5 release notes](https://www.mewtphotos-app.com/support/release-notes/mewtphotos-4-9-5-for-ios-released) (Live Photo format options, new unique-id tracking). HIGH for vendor behaviour
+- [Mewt Photos 4.8 release notes](https://www.mewtphotos-app.com/support/release-notes/mewtphotos-4-8-for-ios-released) (re-transfer edited items, original/edited/both, RAW/JPEG choice, HEIC+JPEG). HIGH for vendor behaviour
+- [Mewt Photos 3.0 release notes](https://www.mewtphotos-app.com/support/release-notes/mewtphotos-3-0-for-ios-released) and [3.2.3](https://www.mewtphotos-app.com/support/release-notes/mewtphotos-3-2-3-for-ios-released) (bursts, iCloud auto-download, edited Live Photo video fix). HIGH for vendor behaviour
 - [Apple PHAssetResourceType](https://developer.apple.com/documentation/photos/phassetresourcetype.md) (full resource list incl. adjustmentBase*, alternatePhoto, pairedVideo, fullSize*). HIGH
 - [Apple PHFetchOptions](https://developer.apple.com/documentation/photos/phfetchoptions.md) (includeHiddenAssets, includeAllBurstAssets, includeAssetSourceTypes, burstIdentifier). HIGH
 - [Apple PHAssetResourceRequestOptions](https://developer.apple.com/documentation/photos/phassetresourcerequestoptions.md), [forum: local PHAssetResource availability](https://developer.apple.com/forums/thread/833066), [forum thread 66477](https://developer.apple.com/forums/thread/66477) (network flag, progress handler, no local-availability API, download stalls). MEDIUM

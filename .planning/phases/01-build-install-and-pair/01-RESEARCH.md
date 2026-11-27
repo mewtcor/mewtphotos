@@ -47,7 +47,7 @@ QR scanning (PAIR-01, Phase 4), plain-English reachability diagnosis (PAIR-04, P
 
 ## Summary
 
-Phase 1 needs **no server change**. The existing `/api/v1/health`, `/pair`, `/status` and the loopback-only `/admin/pairing` endpoint are enough, even for a headless contract test in CI: start the unmodified `server/main.ts` with `PHOTOSYNC_PORT` and `PHOTOSYNC_DATA_DIR` set on an `ubuntu-24.04` runner, then let the Swift contract test read the pairing code from `GET /api/v1/admin/pairing` over `127.0.0.1` exactly as the dashboard does. All other work is new files: a `ios/` tree (XcodeGen spec, checked-in `Info.plist`, thin SwiftUI app, a Swift 6 `PhotoSyncCore` package), two workflows (`ci.yml` on Linux for every code push, `ios-build.yml` on `macos-26` by hand), and a plist-check script. The Linux runner already carries Swift 6.4, Node 22, Python 3.12 and `gh`, so the cheap loop needs no installation steps.
+Phase 1 needs **no server change**. The existing `/api/v1/health`, `/pair`, `/status` and the loopback-only `/admin/pairing` endpoint are enough, even for a headless contract test in CI: start the unmodified `server/main.ts` with `MEWTPHOTOS_PORT` and `MEWTPHOTOS_DATA_DIR` set on an `ubuntu-24.04` runner, then let the Swift contract test read the pairing code from `GET /api/v1/admin/pairing` over `127.0.0.1` exactly as the dashboard does. All other work is new files: a `ios/` tree (XcodeGen spec, checked-in `Info.plist`, thin SwiftUI app, a Swift 6 `MewtPhotosCore` package), two workflows (`ci.yml` on Linux for every code push, `ios-build.yml` on `macos-26` by hand), and a plist-check script. The Linux runner already carries Swift 6.4, Node 22, Python 3.12 and `gh`, so the cheap loop needs no installation steps.
 
 Three findings change the project-level research. (1) Apple's current `NSAllowsLocalNetworking` page says that **since iOS 17 ATS no longer allows connections to IP addresses by default**, and that the local-networking exception is what re-enables "unqualified domains, `.local` domains, and IP addresses". The roadmap decision (`NSAllowsLocalNetworking` only) is therefore correct and grounded, but the SUMMARY's premise that ATS ignores IP literals is wrong for iOS 17+; the IP-CIDR `NSExceptionDomains` entry is the documented fallback before `NSAllowsArbitraryLoads`. (2) `URLSessionConfiguration.waitsForConnectivity` is marked `unavailable` on non-Darwin platforms and `allowsExpensiveNetworkAccess` / `allowsConstrainedNetworkAccess` do not exist in swift-corelibs-foundation at all, so any Core code that sets them fails the Linux build; session configuration must live in the app target. (3) The REST "workflow run timing" endpoint that would give billed minutes is documented as "in the process of closing down", so BLD-07 must read billed minutes from the billing usage report and use job step summaries only as a cross-check.
 
@@ -57,7 +57,7 @@ The residual risk is entirely on Apple hardware: whether XcodeGen + a local SPM 
 
 ## Project Constraints (from CLAUDE.md)
 
-Extracted from `C:\Users\mewt cor\.claude\CLAUDE.md` and `C:\codes\claude\photosync\.claude\CLAUDE.md`. Treated with the same authority as locked decisions.
+Extracted from `C:\Users\mewt cor\.claude\CLAUDE.md` and `C:\codes\claude\mewtphotos\.claude\CLAUDE.md`. Treated with the same authority as locked decisions.
 
 - Git commits: never add a `Co-Authored-By:` trailer or any Claude/Anthropic attribution; never add "Generated with Claude Code" to PR descriptions.
 - Cost: free; no paid developer membership, no Mac purchase or rental.
@@ -76,7 +76,7 @@ Extracted from `C:\Users\mewt cor\.claude\CLAUDE.md` and `C:\codes\claude\photos
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|-------------|----------------|-----------|
 | Pairing handshake, token issue, code throttling | Windows server (`server/security.ts`, `server/app.ts`) | iPhone app (client) | Already built; app only calls `POST /pair` |
-| Address parsing, request building, error mapping, redaction, log writing, pairing-state persistence | `PhotoSyncCore` package (Swift 6, Linux-tested) | App target (wires it up) | Delivery rule: all logic in Core so it is tested at 1x cost |
+| Address parsing, request building, error mapping, redaction, log writing, pairing-state persistence | `MewtPhotosCore` package (Swift 6, Linux-tested) | App target (wires it up) | Delivery rule: all logic in Core so it is tested at 1x cost |
 | Keychain storage of the device key | iPhone app target (`Security` framework adapter) | Core defines `DeviceKeyStoring` protocol + in-memory fake | `Security` is Apple-only; Core must compile on Linux |
 | `URLSession` configuration (`waitsForConnectivity`, cellular off) | iPhone app target | Core `HTTPTransport` takes a ready `URLSession` | Those properties are unavailable on Linux (verified) |
 | Permission texts, ATS exception, file-sharing keys | Checked-in `Info.plist` (build input) | CI plist gate (Linux + macOS) | Missing keys must stop the build before the 10x-cost compile |
@@ -152,9 +152,9 @@ No marketplace Actions are used; only first-party `actions/*`. Do not add `swift
  edit Swift/YAML/plist ──git push──▶ ci.yml  [ubuntu-24.04, every code push, 1x]
                                        │ npm ci → typecheck → vitest (49)
                                        │ check_info_plist.py  (+ negative control: must FAIL on a stripped copy)
-                                       │ swiftc -parse ios/PhotoSync/*.swift  (syntax only)
-                                       │ node server/main.ts (bg) ── PHOTOSYNC_PORT=18787, DATA_DIR=$RUNNER_TEMP
-                                       │ swift test (PhotoSyncCore): unit ┐
+                                       │ swiftc -parse ios/MewtPhotos/*.swift  (syntax only)
+                                       │ node server/main.ts (bg) ── MEWTPHOTOS_PORT=18787, DATA_DIR=$RUNNER_TEMP
+                                       │ swift test (MewtPhotosCore): unit ┐
                                        │                                   └ contract ──HTTP 127.0.0.1──▶ real server
                                        ▼                                      health / admin/pairing / pair / status
                                    green ✓ ◀── user: gh run watch / Actions tab
@@ -162,40 +162,40 @@ No marketplace Actions are used; only first-party `actions/*`. Do not add `swift
  gh workflow run ios-build.yml ──▶ ios-build.yml [macos-26, manual only, 10x]
    (user deliberately)                │ 1 check_info_plist.py on checked-in Info.plist  → fail early with message
                                       │ 2 DEVELOPER_DIR=Xcode_26.6, print xcodebuild/swift versions
-                                      │ 3 xcodegen (pinned zip) → ios/PhotoSync.xcodeproj
+                                      │ 3 xcodegen (pinned zip) → ios/MewtPhotos.xcodeproj
                                       │ 4 xcodebuild build  Release  generic/platform=iOS  CODE_SIGNING_ALLOWED=NO …
-                                      │ 5 Payload/PhotoSync.app → PhotoSync.ipa ; unzip -l ; plist check inside ipa
+                                      │ 5 Payload/MewtPhotos.app → MewtPhotos.ipa ; unzip -l ; plist check inside ipa
                                       │ 6 job summary: elapsed → upload-artifact (ipa, 7 days; raw log on failure)
  gh run download ◀─────────────────────┘
-   │ PhotoSync.ipa ─▶ iCloud Drive / Files ──────────────────────▶ AltStore "My Apps" + ─▶ re-sign (profile entitlements, id.TEAMID)
+   │ MewtPhotos.ipa ─▶ iCloud Drive / Files ──────────────────────▶ AltStore "My Apps" + ─▶ re-sign (profile entitlements, id.TEAMID)
    │                                                                  │ launch → SwiftUI form
    │                                                                  │ type address + code ──POST /pair {code,deviceName}──▶ server.pair → {token,deviceId}
    │                                                                  │ token → Keychain ; non-secret state → pairing.json
    │                                                                  │ GET /health, GET /status (Bearer) ───────────────────▶ 200 {serverName,…}
-   │                                                                  │ RunLog (token redacted) → Documents/photosync.log
+   │                                                                  │ RunLog (token redacted) → Documents/mewtphotos.log
    └◀── Files / Apple Devices / ShareLink ◀───────────────────────────┘
 ```
 
 ### Recommended Project Structure
 ```
-photosync/
+mewtphotos/
 ├── .gitattributes                         # LF for ios/**, .github/**, *.py, *.yml, *.plist, *.swift
-├── .gitignore                             # + .build/ .swiftpm/ build/ Payload/ *.ipa ios/PhotoSync.xcodeproj/ DerivedData/ .DS_Store
+├── .gitignore                             # + .build/ .swiftpm/ build/ Payload/ *.ipa ios/MewtPhotos.xcodeproj/ DerivedData/ .DS_Store
 ├── .github/workflows/
 │   ├── ci.yml                             # Linux, every code push
 │   └── ios-build.yml                      # macOS, workflow_dispatch only
 ├── ios/
 │   ├── project.yml                        # XcodeGen spec (never commit the .xcodeproj)
-│   ├── PhotoSync/                         # APP TARGET, Swift 5 mode, Apple-only glue (target < ~400 lines in Phase 1)
+│   ├── MewtPhotos/                         # APP TARGET, Swift 5 mode, Apple-only glue (target < ~400 lines in Phase 1)
 │   │   ├── Info.plist                     # checked in, hand-written XML
-│   │   ├── PhotoSyncApp.swift
+│   │   ├── MewtPhotosApp.swift
 │   │   ├── ContentView.swift
 │   │   ├── AppModel.swift                 # @MainActor @Observable
 │   │   ├── KeychainDeviceKeyStore.swift   # implements Core's DeviceKeyStoring
 │   │   └── AppEnvironment.swift           # builds URLSession (waitsForConnectivity), paths, Core objects
-│   ├── Packages/PhotoSyncCore/            # PURE SWIFT, tools 6.0, Swift 6 mode, no dependencies
+│   ├── Packages/MewtPhotosCore/            # PURE SWIFT, tools 6.0, Swift 6 mode, no dependencies
 │   │   ├── Package.swift
-│   │   ├── Sources/PhotoSyncCore/
+│   │   ├── Sources/MewtPhotosCore/
 │   │   │   ├── ServerAddress.swift        # parse "ip", "ip:port", "http://ip:port", "http://ip:port/#pair=CODE"
 │   │   │   ├── DeviceKey.swift            # redacting wrapper + DeviceKeyStoring protocol + InMemoryDeviceKeyStore
 │   │   │   ├── Wire.swift                 # Codable mirrors: HealthResponse, PairRequest, PairResponse, ClientStatus, ServerErrorBody
@@ -204,7 +204,7 @@ photosync/
 │   │   │   ├── PairingStore.swift         # atomic JSON for non-secret pairing state
 │   │   │   ├── RunLog.swift               # actor: append, flush, rotate, scrub known secrets
 │   │   │   └── LaunchEvidence.swift       # launch counter + bundle-id/keychain facts → log lines (FEAS-01 evidence)
-│   │   └── Tests/PhotoSyncCoreTests/      # Unit/, Contract/
+│   │   └── Tests/MewtPhotosCoreTests/      # Unit/, Contract/
 │   └── scripts/check_info_plist.py        # required-keys gate (source plist, built .app plist, or .ipa)
 └── (server/ shared/ web/ tests/ unchanged)
 ```
@@ -234,25 +234,25 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - name: Info.plist gate (must pass)
-        run: python3 ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist
+        run: python3 ios/scripts/check_info_plist.py ios/MewtPhotos/Info.plist
       - name: Info.plist gate negative control (must fail)
         run: |
-          grep -v NSPhotoLibraryUsageDescription ios/PhotoSync/Info.plist > "$RUNNER_TEMP/bad.plist" || true
+          grep -v NSPhotoLibraryUsageDescription ios/MewtPhotos/Info.plist > "$RUNNER_TEMP/bad.plist" || true
           if python3 ios/scripts/check_info_plist.py "$RUNNER_TEMP/bad.plist"; then echo "gate did not fail"; exit 1; fi
-      - run: swiftc -version && swiftc -parse ios/PhotoSync/*.swift
+      - run: swiftc -version && swiftc -parse ios/MewtPhotos/*.swift
       - name: Start the real server
         run: |
           mkdir -p "$RUNNER_TEMP/ps-data"
-          PHOTOSYNC_DATA_DIR="$RUNNER_TEMP/ps-data" PHOTOSYNC_PORT=18787 \
+          MEWTPHOTOS_DATA_DIR="$RUNNER_TEMP/ps-data" MEWTPHOTOS_PORT=18787 \
             nohup node --disable-warning=ExperimentalWarning server/main.ts > "$RUNNER_TEMP/server.out" 2>&1 &
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:18787/api/v1/health && exit 0; sleep 0.5; done
           cat "$RUNNER_TEMP/server.out"; exit 1
       - name: swift test (unit + contract)
-        working-directory: ios/Packages/PhotoSyncCore
-        env: { PHOTOSYNC_CONTRACT_URL: 'http://127.0.0.1:18787' }
+        working-directory: ios/Packages/MewtPhotosCore
+        env: { MEWTPHOTOS_CONTRACT_URL: 'http://127.0.0.1:18787' }
         run: swift --version && swift test
 ```
-Notes: `CI=true` is set by Actions, which the contract tests use to turn "server not configured" into a failure instead of a skip. Do **not** set `PHOTOSYNC_HOST=127.0.0.1`: `server/main.ts` would then bind the same address twice (`app.listen` on 127.0.0.1, then the LAN server on `lanIp`) and exit with EADDRINUSE; leave it unset and it binds loopback plus the runner's private NIC (see Pitfall 9).
+Notes: `CI=true` is set by Actions, which the contract tests use to turn "server not configured" into a failure instead of a skip. Do **not** set `MEWTPHOTOS_HOST=127.0.0.1`: `server/main.ts` would then bind the same address twice (`app.listen` on 127.0.0.1, then the LAN server on `lanIp`) and exit with EADDRINUSE; leave it unset and it binds loopback plus the runner's private NIC (see Pitfall 9).
 
 ### Pattern 2: Headless contract test through the existing admin endpoint
 **What:** The Swift test calls `GET {base}/api/v1/admin/pairing` (loopback + `Host: 127.0.0.1:<port>` satisfies `requireAdmin`), reads `code`, then drives `ServerClient.pair` etc. over real HTTP. No new server entry point, no server change.
@@ -280,7 +280,7 @@ Notes: `CI=true` is set by Actions, which the contract tests use to turn "server
 |---------|-------------|-------------|-----|
 | iOS project file | `project.pbxproj` by hand | XcodeGen `project.yml` | Any typo is found only on a 10x build |
 | Plist validation | regex over XML | Python `plistlib` | Reads both XML and binary plists, so one script checks source plist, built `.app` and `.ipa` |
-| Zipping the `.ipa` | custom packaging code | `mkdir Payload && cp -R … && zip -qry PhotoSync.ipa Payload` | `Payload/` must be the top-level folder |
+| Zipping the `.ipa` | custom packaging code | `mkdir Payload && cp -R … && zip -qry MewtPhotos.ipa Payload` | `Payload/` must be the top-level folder |
 | Re-signing / profile / App ID | anything | AltStore | It rewrites bundle ID, replaces entitlements wholesale from the profile, and reuses the App ID |
 | HTTP client | socket code | `URLSession` | Required by ATS/Local Network behaviour anyway |
 | Secret storage | file/UserDefaults for the key | Keychain | The key grants upload rights on the PC |
@@ -299,13 +299,13 @@ Not applicable: greenfield addition (no rename/refactor/migration). Nothing in t
 ### Pitfall 1: Unsigned `.ipa` builds fine but is not a valid payload
 **What goes wrong:** zip has the wrong top-level folder, wrong product path, or an app built for the simulator; AltStore reports 1007/2007 "invalid format".
 **Why it happens:** `xcodebuild build` output path differs from memory; `-sdk` guessed; `-destination` wrong.
-**How to avoid:** `-destination 'generic/platform=iOS'` (no `-sdk`, so no hard-coded SDK number: the macos-26 README lists iOS SDKs 26.0-26.5 while the default Xcode is 26.6, so do not write `iphoneos26.6`); `ls build/Build/Products/*/` before copying; after zipping run `unzip -l PhotoSync.ipa | head` and run the plist gate on `Payload/PhotoSync.app/Info.plist` extracted from the ipa; assert `Payload/PhotoSync.app/PhotoSync` exists.
+**How to avoid:** `-destination 'generic/platform=iOS'` (no `-sdk`, so no hard-coded SDK number: the macos-26 README lists iOS SDKs 26.0-26.5 while the default Xcode is 26.6, so do not write `iphoneos26.6`); `ls build/Build/Products/*/` before copying; after zipping run `unzip -l MewtPhotos.ipa | head` and run the plist gate on `Payload/MewtPhotos.app/Info.plist` extracted from the ipa; assert `Payload/MewtPhotos.app/MewtPhotos` exists.
 **Warning signs:** AltStore errors 1007, 2007, 3009 (non-ASCII app name; keep `CFBundleName` ASCII) [CITED: faq.altstore.io/altstore-classic/error-codes.md].
 
 ### Pitfall 2: XcodeGen + local package + Xcode 26 untested together
 **What goes wrong:** package not linked, product name mismatch, or Swift 6 package imported into a Swift 5 target errors.
-**How to avoid:** product name equals package name (`PhotoSyncCore`) so `dependencies: - package: PhotoSyncCore` needs no `product:` [CITED: XcodeGen ProjectSpec.md]. Keep the library product static/automatic (no embedded framework). **Prepared fallback (one-line change):** if package resolution fails on the first Mac build, add `../Packages/PhotoSyncCore/Sources/PhotoSyncCore` as a second `sources:` entry of the app target and drop the `packages:` block; same files, no package.
-**Warning signs:** `xcodebuild` error "Missing package product" or "no such module PhotoSyncCore".
+**How to avoid:** product name equals package name (`MewtPhotosCore`) so `dependencies: - package: MewtPhotosCore` needs no `product:` [CITED: XcodeGen ProjectSpec.md]. Keep the library product static/automatic (no embedded framework). **Prepared fallback (one-line change):** if package resolution fails on the first Mac build, add `../Packages/MewtPhotosCore/Sources/MewtPhotosCore` as a second `sources:` entry of the app target and drop the `packages:` block; same files, no package.
+**Warning signs:** `xcodebuild` error "Missing package product" or "no such module MewtPhotosCore".
 
 ### Pitfall 3: Darwin-only URLSession settings break the Linux build
 **What goes wrong:** `swift test` on Linux fails to compile Core.
@@ -357,7 +357,7 @@ All Swift/YAML below was composed from API knowledge and documents read this ses
 ### Server contract Phase 1 depends on (verbatim)
 `server/app.ts:202-217`:
 ```ts
-  app.get(`${API}/health`, async () => ({ ok: true, name: 'photosync', apiVersion: 1 }));
+  app.get(`${API}/health`, async () => ({ ok: true, name: 'mewtphotos', apiVersion: 1 }));
 
   app.post(`${API}/pair`, async (req) => {
     const body = PairRequest.parse(req.body);
@@ -423,7 +423,7 @@ const FAILURE_WINDOW_MS = 5 * 60 * 1000;
     return { code, expiresAt, url, qrSvg: url ? await QRCode.toString(url, { type: 'svg', margin: 1 }) : null };
   });
 ```
-Environment for a headless server: `server/main.ts:11-12`: `const port = Number(process.env.PHOTOSYNC_PORT ?? 8787);` `const lanIp = process.env.PHOTOSYNC_HOST ?? pickLanAddress();` and `server/config.ts:13`: `return process.env.PHOTOSYNC_DATA_DIR ?? path.join(process.env.LOCALAPPDATA ?? os.homedir(), 'PhotoSync');`.
+Environment for a headless server: `server/main.ts:11-12`: `const port = Number(process.env.MEWTPHOTOS_PORT ?? 8787);` `const lanIp = process.env.MEWTPHOTOS_HOST ?? pickLanAddress();` and `server/config.ts:13`: `return process.env.MEWTPHOTOS_DATA_DIR ?? path.join(process.env.LOCALAPPDATA ?? os.homedir(), 'MewtPhotos');`.
 
 Consequences for the Swift side: pair body `{"code": <string>, "deviceName": <1-80 chars>}`; response `{"token","deviceId"}`; the code is case-insensitive and non-alphanumerics are stripped server-side, so the app only trims whitespace; entropy is 31^8 ~ 2^39.6 behind an 8 per 5 minutes per-IP throttle; QR URL form is `http://<ip>:<port>/#pair=<CODE>` (parse it when pasted into the address field); error bodies are `{error, message, ...extra}`.
 
@@ -436,20 +436,20 @@ Consequences for the Swift side: pair body `{"code": <string>, "deviceName": <1-
   <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
   <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-  <key>CFBundleName</key><string>PhotoSync</string>
-  <key>CFBundleDisplayName</key><string>PhotoSync</string>
+  <key>CFBundleName</key><string>MewtPhotos</string>
+  <key>CFBundleDisplayName</key><string>MewtPhotos</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
-  <key>PhotoSyncGitSHA</key><string>$(GIT_SHA)</string>
+  <key>MewtPhotosGitSHA</key><string>$(GIT_SHA)</string>
   <key>LSRequiresIPhoneOS</key><true/>
   <key>UILaunchScreen</key><dict/>
   <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
   <key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
   <key>UIFileSharingEnabled</key><true/>
   <key>LSSupportsOpeningDocumentsInPlace</key><true/>
-  <key>NSPhotoLibraryUsageDescription</key><string>PhotoSync reads your photo library to back it up to your PC. It never changes or deletes anything.</string>
-  <key>NSLocalNetworkUsageDescription</key><string>PhotoSync connects to your PC on this Wi-Fi network to back up your photos.</string>
+  <key>NSPhotoLibraryUsageDescription</key><string>MewtPhotos reads your photo library to back it up to your PC. It never changes or deletes anything.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>MewtPhotos connects to your PC on this Wi-Fi network to back up your photos.</string>
   <key>NSCameraUsageDescription</key><string>Used only to scan the pairing QR code shown on your PC.</string>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>
@@ -458,24 +458,24 @@ Rationale for what is in and out: Apple's ATS page: "In iOS 17, iPadOS 17, and m
 
 ### `ios/project.yml` [ASSUMED; schema keys from XcodeGen ProjectSpec.md read this session]
 ```yaml
-name: PhotoSync
+name: MewtPhotos
 options:
   deploymentTarget: { iOS: "18.0" }
 packages:
-  PhotoSyncCore:
-    path: Packages/PhotoSyncCore
+  MewtPhotosCore:
+    path: Packages/MewtPhotosCore
 targets:
-  PhotoSync:
+  MewtPhotos:
     type: application
     platform: iOS
-    sources: [PhotoSync]
+    sources: [MewtPhotos]
     dependencies:
-      - package: PhotoSyncCore
+      - package: MewtPhotosCore
     settings:
       base:
         SWIFT_VERSION: "5.0"
-        PRODUCT_BUNDLE_IDENTIFIER: com.mewtcor.photosync   # PLACEHOLDER: user confirms once, then never changes
-        INFOPLIST_FILE: PhotoSync/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.mewtcor.mewtphotos   # PLACEHOLDER: user confirms once, then never changes
+        INFOPLIST_FILE: MewtPhotos/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
@@ -491,12 +491,12 @@ XcodeGen facts used: `packages:` accepts a local `path:`; `dependencies: - packa
 // swift-tools-version: 6.0
 import PackageDescription
 let package = Package(
-  name: "PhotoSyncCore",
+  name: "MewtPhotosCore",
   platforms: [.iOS(.v18), .macOS(.v15)],
-  products: [.library(name: "PhotoSyncCore", targets: ["PhotoSyncCore"])],
+  products: [.library(name: "MewtPhotosCore", targets: ["MewtPhotosCore"])],
   targets: [
-    .target(name: "PhotoSyncCore"),                                  // Swift 6 language mode by default with tools 6.0
-    .testTarget(name: "PhotoSyncCoreTests", dependencies: ["PhotoSyncCore"]),
+    .target(name: "MewtPhotosCore"),                                  // Swift 6 language mode by default with tools 6.0
+    .testTarget(name: "MewtPhotosCoreTests", dependencies: ["MewtPhotosCore"]),
   ]
 )
 ```
@@ -518,7 +518,7 @@ jobs:
       - name: Start clock and fail early on a missing permission text
         run: |
           echo "T0=$(date +%s)" >> "$GITHUB_ENV"
-          python3 ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist
+          python3 ios/scripts/check_info_plist.py ios/MewtPhotos/Info.plist
       - name: Select Xcode and print versions
         run: |
           test -d "$XCODE" || { echo "Xcode 26.6 not on this image:"; ls /Applications | grep Xcode; exit 1; }
@@ -533,24 +533,24 @@ jobs:
       - name: Build (unsigned)
         run: |
           set -o pipefail
-          xcodebuild build -project ios/PhotoSync.xcodeproj -scheme PhotoSync -configuration Release \
+          xcodebuild build -project ios/MewtPhotos.xcodeproj -scheme MewtPhotos -configuration Release \
             -destination 'generic/platform=iOS' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}" GIT_SHA="${GITHUB_SHA::7}" 2>&1 | tee build.log | xcbeautify
       - name: Package ipa and verify
         run: |
           ls build/Build/Products/
-          mkdir Payload && cp -R build/Build/Products/Release-iphoneos/PhotoSync.app Payload/
-          zip -qry PhotoSync.ipa Payload
-          unzip -l PhotoSync.ipa | head -20
-          unzip -p PhotoSync.ipa 'Payload/PhotoSync.app/Info.plist' > built-Info.plist
+          mkdir Payload && cp -R build/Build/Products/Release-iphoneos/MewtPhotos.app Payload/
+          zip -qry MewtPhotos.ipa Payload
+          unzip -l MewtPhotos.ipa | head -20
+          unzip -p MewtPhotos.ipa 'Payload/MewtPhotos.app/Info.plist' > built-Info.plist
           python3 ios/scripts/check_info_plist.py built-Info.plist
-          test -f Payload/PhotoSync.app/PhotoSync
+          test -f Payload/MewtPhotos.app/MewtPhotos
       - name: Record elapsed time
         if: always()
         run: echo "mac job wall time: $(( $(date +%s) - T0 )) s (billing rounds each job up to whole minutes)" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
-        with: { name: PhotoSync-ipa, path: PhotoSync.ipa, retention-days: 7, compression-level: 0 }
+        with: { name: MewtPhotos-ipa, path: MewtPhotos.ipa, retention-days: 7, compression-level: 0 }
       - uses: actions/upload-artifact@v7
         if: failure()
         with: { name: build-log, path: build.log, retention-days: 3 }
@@ -583,15 +583,15 @@ def main(path: str) -> int:
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1]))
 ```
-Run locally on the dev PC with `python ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist` (the dev machine's `python3` alias is a Store stub; `python` works).
+Run locally on the dev PC with `python ios/scripts/check_info_plist.py ios/MewtPhotos/Info.plist` (the dev machine's `python3` alias is a Store stub; `python` works).
 
 ### Keychain adapter (app target) [ASSUMED]
 ```swift
 import Security
-import PhotoSyncCore
+import MewtPhotosCore
 
 struct KeychainDeviceKeyStore: DeviceKeyStoring {
-  private let service = "photosync.device-key", account = "device-key"
+  private let service = "mewtphotos.device-key", account = "device-key"
   func load() -> KeyLoadResult {                     // .found(DeviceKey) / .notFound / .failed(OSStatus)
     let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
                             kSecAttrAccount as String: account, kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
@@ -637,9 +637,9 @@ public struct URLSessionTransport: HTTPTransport {
 ```swift
 import Testing
 import Foundation
-@testable import PhotoSyncCore
+@testable import MewtPhotosCore
 
-let contractURL = ProcessInfo.processInfo.environment["PHOTOSYNC_CONTRACT_URL"]
+let contractURL = ProcessInfo.processInfo.environment["MEWTPHOTOS_CONTRACT_URL"]
 
 @Test("CI must have configured the contract server")
 func contractConfigured() { if ProcessInfo.processInfo.environment["CI"] != nil { #expect(contractURL != nil) } }
@@ -659,7 +659,7 @@ func contractConfigured() { if ProcessInfo.processInfo.environment["CI"] != nil 
   #expect(await log.snapshot().contains(paired.token) == false)
 }
 ```
-Other contract cases: `GET /health` returns `ok == true` and `name == "photosync"` and `apiVersion == 1`; one wrong code returns error `bad_pairing_code` (403); `status` with a made-up key returns `unauthorized` (401).
+Other contract cases: `GET /health` returns `ok == true` and `name == "mewtphotos"` and `apiVersion == 1`; one wrong code returns error `bad_pairing_code` (403); `status` with a made-up key returns `unauthorized` (401).
 
 ## State of the Art
 
@@ -679,7 +679,7 @@ Other contract cases: `GET /health` returns `ok == true` and `name == "photosync
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | `xcodebuild build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` yields `build/Build/Products/Release-iphoneos/PhotoSync.app` on Xcode 26.6 | ios-build.yml | First Mac build fails; workflow prints the products folder so the fix is a one-line path change (costs one build) |
+| A1 | `xcodebuild build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` yields `build/Build/Products/Release-iphoneos/MewtPhotos.app` on Xcode 26.6 | ios-build.yml | First Mac build fails; workflow prints the products folder so the fix is a one-line path change (costs one build) |
 | A2 | AltStore (Classic, current) accepts the unsigned `.ipa` and installs it | BLD-04 | Gate fails; re-plan install route (AltSign overwrites signing wholesale, so likely fine) |
 | A3 | Installing a newer `.ipa` with the same bundle ID via AltStore "+" updates in place (one icon, data kept) | BLD-04/criterion 3 | Could create a prompt or a second app; the device test settles it |
 | A4 | Keychain item and `pairing.json` survive AltStore "Refresh All" | FEAS-01 | Gate failure (this is exactly what the gate measures) |
@@ -695,7 +695,7 @@ Other contract cases: `GET /health` returns `ok == true` and `name == "photosync
 | A14 | The `.ipa` can reach the phone via iCloud Drive for Windows (installed because AltServer requires it) then AltStore "+" -> Files | Delivery | Download the artifact zip in Safari on the phone (Files unzips it) |
 | A15 | AltStore stores the original bundle ID under the Info.plist key `ALTBundleIdentifier` | LaunchEvidence | Field shows "-" |
 | A16 | Billing: the Free plan's 2,000 included minutes are consumed by macOS jobs at about 10x (so about 190-200 Mac minutes) | BLD-07 | Measured by BLD-07 itself |
-| A17 | Bundle ID `com.mewtcor.photosync` is acceptable to the user | project.yml | Placeholder; must be confirmed once (immutable afterwards) |
+| A17 | Bundle ID `com.mewtcor.mewtphotos` is acceptable to the user | project.yml | Placeholder; must be confirmed once (immutable afterwards) |
 | A18 | `gh auth refresh -s workflow` is the right way to add the missing scope | Repo setup | Create a new token with `repo` + `workflow` instead |
 | A19 | Swift Testing runs under `swift test` on the preinstalled Linux toolchain | Core tests | Switch the tests to XCTest |
 
@@ -706,8 +706,8 @@ Every question below is settled by a named plan checkpoint, plan task or decisio
 1. **Bundle identifier (immutable).** (RESOLVED)
    - What we know: one ID forever; AltStore appends the team ID; length/ASCII rules apply (error 3009 for non-ASCII names).
    - What's unclear: the user's preferred reverse-DNS prefix.
-   - Recommendation: ask once at the start of the build plan; default `com.mewtcor.photosync` (GitHub handle). Record it in `01-GATE.md`.
-   - **RESOLVED:** Plan 01-04 Task 1 is a blocking `checkpoint:decision` that asks once (default `com.mewtcor.photosync`). The answer is written to `ios/project.yml` in 01-04 Task 2, to 01-04-SUMMARY, and copied into `01-GATE.md` Identity by 01-05 Task 3.
+   - Recommendation: ask once at the start of the build plan; default `com.mewtcor.mewtphotos` (GitHub handle). Record it in `01-GATE.md`.
+   - **RESOLVED:** Plan 01-04 Task 1 is a blocking `checkpoint:decision` that asks once (default `com.mewtcor.mewtphotos`). The answer is written to `ios/project.yml` in 01-04 Task 2, to 01-04-SUMMARY, and copied into `01-GATE.md` Identity by 01-05 Task 3.
 2. **Exact iOS version on the phone.** (RESOLVED) 18.0-18.5 have the Local Network stale-state bug (fixed in 18.6). Ask for it and put it in the device test sheet.
    - **RESOLVED:** Plan 01-06 Task 1 opens the device checklist with a "Record the iOS version" line and the TN3179 note, Task 2 requires the version in the user's reply, and Task 3 writes it into `01-GATE.md` as an open item Phase 2 inherits.
 3. **Do the 49 server tests pass on Linux?** (RESOLVED) Unknown until the first `ci.yml` run. Plan a decision point after the first run: keep Linux or move vitest to `windows-latest`.
@@ -752,8 +752,8 @@ Every question below is settled by a named plan checkpoint, plan task or decisio
 | Property | Value |
 |----------|-------|
 | Framework | Vitest 5.0.3 (server, existing); Swift Testing via `swift test` on Swift 6.4 / `ubuntu-24.04` (Core); Python script with a CI negative control (plist gate); GitHub Actions as the harness; human device checklist |
-| Config file | `vitest.config.ts` (existing); `ios/Packages/PhotoSyncCore/Package.swift` (Wave 0); `.github/workflows/ci.yml` (Wave 0) |
-| Quick run command | local: `npm test && npm run typecheck && python ios/scripts/check_info_plist.py ios/PhotoSync/Info.plist`; remote: `git push` then `gh run watch --exit-status` |
+| Config file | `vitest.config.ts` (existing); `ios/Packages/MewtPhotosCore/Package.swift` (Wave 0); `.github/workflows/ci.yml` (Wave 0) |
+| Quick run command | local: `npm test && npm run typecheck && python ios/scripts/check_info_plist.py ios/MewtPhotos/Info.plist`; remote: `git push` then `gh run watch --exit-status` |
 | Full suite command | the same `ci.yml` run (server tests, plist gate + negative control, `swiftc -parse`, `swift test` incl. contract) plus a manual `ios-build.yml` run |
 
 ### Phase Requirements -> Test Map
@@ -761,9 +761,9 @@ Every question below is settled by a named plan checkpoint, plan task or decisio
 |--------|----------|-----------|-------------------|-------------|
 | BLD-01 | Repo is private; `package-lock.json` tracked | smoke | `gh repo view --json isPrivate,defaultBranchRef` ; `git ls-files package-lock.json` | Wave 0 |
 | BLD-02 | Push runs server + Swift tests incl. contract and goes green | CI | `gh run list --workflow ci.yml --limit 1 --json conclusion` == success | Wave 0 (`ci.yml`) |
-| BLD-02 | Contract: health, pair, wrong code 403, status 200/401 against the real server | integration | `swift test --filter Contract` with `PHOTOSYNC_CONTRACT_URL` | Wave 0 (`Tests/.../Contract`) |
+| BLD-02 | Contract: health, pair, wrong code 403, status 200/401 against the real server | integration | `swift test --filter Contract` with `MEWTPHOTOS_CONTRACT_URL` | Wave 0 (`Tests/.../Contract`) |
 | BLD-03 | Missing permission text stops the build with a clear message | unit | `python ios/scripts/check_info_plist.py <stripped copy>` exits non-zero and names the key; CI negative control | Wave 0 |
-| BLD-03 | Manual Mac build yields unsigned `.ipa` containing `Payload/PhotoSync.app` | CI | `gh workflow run ios-build.yml`; `gh run watch`; `gh run download -n PhotoSync-ipa`; `unzip -l` | Wave 0 (`ios-build.yml`) |
+| BLD-03 | Manual Mac build yields unsigned `.ipa` containing `Payload/MewtPhotos.app` | CI | `gh workflow run ios-build.yml`; `gh run watch`; `gh run download -n MewtPhotos-ipa`; `unzip -l` | Wave 0 (`ios-build.yml`) |
 | BLD-04 | No entitlements, one bundle ID, no extensions | static | CI step: fail if any `*.entitlements` file exists or `project.yml` contains `entitlements`/`CODE_SIGN_ENTITLEMENTS`/`extension` targets | Wave 0 |
 | BLD-04 | Install-over keeps one icon and data | manual (device) | Checklist step | Wave 0 (`docs/ios-phase1-device-test.md`) |
 | BLD-05 | Device key never in log (type-level) | unit | `swift test --filter Redaction` (`"\(key)"`, `String(reflecting:)`, `dump` all redacted) | Wave 0 |
@@ -781,10 +781,10 @@ Every question below is settled by a named plan checkpoint, plan task or decisio
 - **Phase gate:** green `ci.yml`, at least two successful `ios-build.yml` runs with recorded minutes, and the signed-off device checklist, written as the go/no-go note, before `/gsd-verify-work`.
 
 ### Wave 0 Gaps
-- [ ] `ios/Packages/PhotoSyncCore/Package.swift` + `Tests/PhotoSyncCoreTests/{Unit,Contract}` (ServerAddress, DeviceKey redaction, RunLog scrub/rotate, ServerClient with fake transport, PairingStore, contract)
+- [ ] `ios/Packages/MewtPhotosCore/Package.swift` + `Tests/MewtPhotosCoreTests/{Unit,Contract}` (ServerAddress, DeviceKey redaction, RunLog scrub/rotate, ServerClient with fake transport, PairingStore, contract)
 - [ ] `.github/workflows/ci.yml` and `ios-build.yml`
 - [ ] `ios/scripts/check_info_plist.py` + negative-control step
-- [ ] `ios/PhotoSync/Info.plist`, `ios/project.yml`
+- [ ] `ios/MewtPhotos/Info.plist`, `ios/project.yml`
 - [ ] `docs/ios-phase1-device-test.md` (checklist in the style of `docs/iphone-test-checklist.md`), `.planning/phases/01-build-install-and-pair/01-GATE.md` (go/no-go + minutes table)
 - [ ] `.gitattributes`, `.gitignore` additions
 - [ ] Framework install: none (Swift and Node are preinstalled on the runner)

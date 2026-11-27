@@ -174,4 +174,14 @@ export interface ClientStatus {
   maxFileBytes: number;
   /** Free bytes on the backup drive, so the app can stop before preparing a file that will not fit. */
   freeBytes: number;
+  /** Distinct verified files stored in the server archive. */
+  storedFiles?: number;
+  /** Total bytes stored in the server archive. */
+  storedBytes?: number;
+  /** True while a full-archive SHA-256 verification pass is running. */
+  verifyRunning?: boolean;
+  /** Epoch milliseconds when the last verification pass finished, or null if none yet. */
+  lastVerifyAt?: number | null;
+  /** True when POST /api/v1/files accepts native metadata query params (assetId, hidden, pairId, pairName, lastModified). */
+  oneShotMetadata?: boolean;
 }

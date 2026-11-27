@@ -5,7 +5,7 @@
 ## Directory Layout
 
 ```
-photosync/                          # project root (single npm package, "private": true)
+mewtphotos/                          # project root (single npm package, "private": true)
 ├── server/                         # Node/TypeScript backend, run directly (no build)
 │   ├── main.ts                     # process entry point (npm start)
 │   ├── app.ts                      # buildApp(): Fastify routes, guards, SSE, static files
@@ -54,7 +54,7 @@ photosync/                          # project root (single npm package, "private
 ```
 
 Runtime-only locations (outside the repo, not committed):
-- `%LOCALAPPDATA%\PhotoSync\photosync.db` (+ `-wal`, `-shm`) and `server.log`. Override with `PHOTOSYNC_DATA_DIR`.
+- `%LOCALAPPDATA%\MewtPhotos\mewtphotos.db` (+ `-wal`, `-shm`) and `server.log`. Override with `MEWTPHOTOS_DATA_DIR`.
 - Backup folder, default `<Pictures>\iPhone Backup\YYYY\MM\…`, with `.incoming\<uuid>.part` for in-flight transfers. Chosen in the dashboard.
 
 ## Directory Purposes

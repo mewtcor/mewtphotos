@@ -15,7 +15,7 @@ afterEach(async () => {
 
 describe('database upgrade', () => {
   it('an old database opens, keeps its rows, and gains the new columns', async () => {
-    const file = path.join(await mkdtemp(path.join(os.tmpdir(), 'photosync-upgrade-')), 'old.db');
+    const file = path.join(await mkdtemp(path.join(os.tmpdir(), 'mewtphotos-upgrade-')), 'old.db');
     // The uploads table as the previous version wrote it: no hidden, pair_id or pair_name columns.
     const old = new DatabaseSync(file);
     old.exec(`

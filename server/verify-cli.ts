@@ -1,11 +1,10 @@
 // `npm run verify`: re-hash every stored file and check the database. Exit code 1 on problems.
 import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { dataDir, loadSettings } from './config.ts';
+import { dataDir, dbFile as findDbFile, loadSettings } from './config.ts';
 import { openDb } from './db.ts';
 import { verifyBackup } from './verify.ts';
 
-const dbFile = path.join(dataDir(), 'photosync.db');
+const dbFile = findDbFile(dataDir());
 if (!existsSync(dbFile)) {
   console.error(`No backup database found at ${dbFile}. Nothing has been backed up yet.`);
   process.exit(1);

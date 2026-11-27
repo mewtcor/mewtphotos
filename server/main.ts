@@ -4,15 +4,16 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import QRCode from 'qrcode';
 import { buildApp } from './app.ts';
-import { dataDir } from './config.ts';
+import { dataDir, dbFile } from './config.ts';
 import { openDb } from './db.ts';
 import { pickLanAddress } from './security.ts';
 
-const port = Number(process.env.PHOTOSYNC_PORT ?? 8787);
-const lanIp = process.env.PHOTOSYNC_HOST ?? pickLanAddress();
+const port = Number(process.env.MEWTPHOTOS_PORT ?? 8787);
+const lanIp = process.env.MEWTPHOTOS_HOST ?? pickLanAddress();
+const daemon = process.env.MEWTPHOTOS_DAEMON === '1' || process.argv.includes('--daemon');
 const dashboard = `http://127.0.0.1:${port}/dashboard`;
 const openDashboard = () => {
-  if (process.platform === 'win32' && !process.argv.includes('--no-open')) {
+  if (!daemon && process.platform === 'win32' && !process.argv.includes('--no-open')) {
     spawn('cmd', ['/c', 'start', '', dashboard], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
   }
 };
@@ -22,7 +23,7 @@ const openDashboard = () => {
 const running = await fetch(`http://127.0.0.1:${port}/api/v1/health`, { signal: AbortSignal.timeout(3000) })
   .then((r) => r.json() as Promise<{ name?: string }>)
   .catch(() => null);
-if (running?.name === 'photosync') {
+if (running?.name === 'mewtphotos') {
   console.log('\n  The backup app is already running (in another window, or in the background).');
   console.log(`  Dashboard: ${dashboard}`);
   console.log('  To restart it, close that window (or end "Node.js JavaScript Runtime" in Task Manager) and start again.\n');
@@ -34,8 +35,8 @@ const dir = dataDir();
 mkdirSync(dir, { recursive: true });
 const logFile = path.join(dir, 'server.log');
 
-const db = openDb(path.join(dir, 'photosync.db'));
-const { app, ctx, pairing, listen } = await buildApp({ db, port, lanIp, logFile, onStopRequest: (reason) => void shutdown(reason) });
+const db = openDb(dbFile(dir));
+const { app, ctx, pairing, listen } = await buildApp({ db, port, lanIp, logFile, daemon, onStopRequest: (reason) => void shutdown(reason) });
 
 try {
   await listen();
@@ -45,7 +46,7 @@ try {
     console.error(`\nPort ${port} is in use by another program (not this app).`);
     console.error(`Start on a different port:  .\\scripts\\start-backup.ps1 -Port ${port + 1}\n`);
   } else if (code === 'EADDRNOTAVAIL') {
-    console.error(`\nCannot listen on ${lanIp}: that address is not on this computer. Check the Wi-Fi connection (or PHOTOSYNC_HOST).\n`);
+    console.error(`\nCannot listen on ${lanIp}: that address is not on this computer. Check the Wi-Fi connection (or MEWTPHOTOS_HOST).\n`);
   } else {
     console.error('\nThe server could not start:', err);
   }
@@ -71,9 +72,11 @@ if (lanIp) {
   console.log('  Connect this PC to the same Wi-Fi as the iPhone and restart.');
 }
 console.log(`\n  Log file: ${logFile}`);
-console.log(ctx.settings().stopWithDashboard
-  ? '  To stop: close the dashboard tab (the app waits for any running backup), or press Ctrl+C.\n'
-  : '  Press Ctrl+C to stop.\n');
+console.log(daemon
+  ? '  Running in 24/7 daemon mode (MEWTPHOTOS_DAEMON=1). Send SIGTERM or press Ctrl+C to stop.\n'
+  : ctx.settings().stopWithDashboard
+    ? '  To stop: close the dashboard tab (the app waits for any running backup), or press Ctrl+C.\n'
+    : '  Press Ctrl+C to stop.\n');
 
 openDashboard();
 

@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { existsSync } from 'node:fs';
-import { rm, stat, statfs } from 'node:fs/promises';
+import { rm, stat, statfs, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,7 +17,7 @@ import {
   type AssetCount, type AssetHeld, type ClientStatus, type Overview, type PairingInfo, type Settings, type UploadState, type VerifyReport,
 } from '../shared/schemas.ts';
 import { loadSettings, saveSettings, validateDestination } from './config.ts';
-import { all, get, run, type Db, type DeviceRow } from './db.ts';
+import { all, get, run, tx, type Db, type DeviceRow } from './db.ts';
 import { appendChunk, cancelUpload, createUpload, currentOffset, finishUpload, getUpload, recover, sessionSummary, type Ctx } from './engine.ts';
 import { hashToken, HttpError, isLocalNetworkAddress, isLoopback, newToken, Pairing } from './security.ts';
 import { verifyBackup } from './verify.ts';
@@ -41,6 +41,8 @@ export interface AppOptions {
   lanIp: string | null;
   logFile?: string;
   webDir?: string;
+  /** Run as a headless 24/7 server: never auto-stop when dashboard tabs close. */
+  daemon?: boolean;
   /** Called when the app should shut itself down (dashboard closed, or Stop pressed). */
   onStopRequest?: (reason: string) => void;
   /** Test seam for disk-full behaviour. */
@@ -93,13 +95,52 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
   let lastDeviceActivity = 0;
   let dashboards = 0;
   let stopTimer: NodeJS.Timeout | undefined;
+  const pendingInfoLogs: Array<{ ts: number; level: 'info' | 'warn' | 'error'; code: string; message: string }> = [];
+  let logFlushTimer: NodeJS.Timeout | undefined;
+  let closing = false;
+
+  function flushLogs(): void {
+    if (logFlushTimer) {
+      clearTimeout(logFlushTimer);
+      logFlushTimer = undefined;
+    }
+    if (pendingInfoLogs.length === 0) return;
+    const batch = pendingInfoLogs.splice(0);
+    try {
+      tx(db, () => {
+        for (const entry of batch) {
+          run(db, 'INSERT INTO logs (ts, level, code, message) VALUES (?, ?, ?, ?)', entry.ts, entry.level, entry.code, entry.message);
+        }
+      });
+    } catch (err) {
+      // Ignore shutdown races where the caller closed the SQLite handle before the flush timer fired.
+      if ((err as { code?: string }).code !== 'ERR_INVALID_STATE') throw err;
+    }
+  }
 
   const ctx: Ctx = {
     db,
     settings: () => settings,
     log(level, code, message) {
-      run(db, 'INSERT INTO logs (ts, level, code, message) VALUES (?, ?, ?, ?)', Date.now(), level, code, message);
+      const ts = Date.now();
       app.log[level]({ code }, message);
+      if (closing) return;
+      if (level === 'info') {
+        pendingInfoLogs.push({ ts, level, code, message });
+        if (pendingInfoLogs.length >= 25) {
+          flushLogs();
+        } else if (!logFlushTimer) {
+          logFlushTimer = setTimeout(flushLogs, 500);
+          logFlushTimer.unref();
+        }
+      } else {
+        flushLogs();
+        try {
+          run(db, 'INSERT INTO logs (ts, level, code, message) VALUES (?, ?, ?, ?)', ts, level, code, message);
+        } catch (err) {
+          if ((err as { code?: string }).code !== 'ERR_INVALID_STATE') throw err;
+        }
+      }
       emitter.emit('event', 'change', null);
     },
     emit: (event, data) => void emitter.emit('event', event, data ?? null),
@@ -135,6 +176,8 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
   speedTimer.unref();
   networkTimer.unref();
   app.addHook('onClose', async () => {
+    closing = true;
+    flushLogs();
     clearInterval(speedTimer);
     clearInterval(networkTimer);
     clearTimeout(stopTimer);
@@ -199,7 +242,7 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
   app.addContentTypeParser('*', (_req, payload, done) => done(null, payload));
 
   // ---- sender API --------------------------------------------------------
-  app.get(`${API}/health`, async () => ({ ok: true, name: 'photosync', apiVersion: 1 }));
+  app.get(`${API}/health`, async () => ({ ok: true, name: 'mewtphotos', apiVersion: 1 }));
 
   app.post(`${API}/pair`, async (req) => {
     const body = PairRequest.parse(req.body);
@@ -211,10 +254,53 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
     return { token, deviceId: id };
   });
 
+  function startVerify(): void {
+    if (verifyRunning) throw new HttpError(409, 'verify_running', 'A verification is already running.');
+    verifyRunning = true;
+    void verifyBackup(
+      db,
+      settings.destination,
+      (done, total) => ctx.emit('verify', { done, total }),
+      () => ctx.active.size > 0,
+    )
+      .then((report) => {
+        const bad = report.missing.length + report.corrupt.length + report.databaseProblems.length;
+        ctx.log(bad ? 'error' : 'info', 'verify_finished', bad
+          ? `Verification found problems: ${report.missing.length} missing, ${report.corrupt.length} corrupted, ${report.databaseProblems.length} database issue(s).`
+          : `Verification passed: all ${report.ok} stored files match their recorded SHA-256.`);
+      })
+      .catch((err: unknown) => ctx.log('error', 'verify_failed', `Verification could not finish: ${err instanceof Error ? err.message : String(err)}`))
+      .finally(() => {
+        verifyRunning = false;
+        ctx.emit('change');
+      });
+  }
+
   app.get(`${API}/status`, async (req): Promise<ClientStatus> => {
     const device = requireDevice(req);
     const freeBytes = await ctx.freeBytes(settings.destination).catch(() => 0);
-    return { deviceName: device.name, serverName: os.hostname(), chunkSize: CHUNK_SIZE, concurrency: settings.concurrency, maxFileBytes: settings.maxFileBytes, freeBytes };
+    const stats = get<{ files: number; bytes: number }>(db, 'SELECT COUNT(*) AS files, COALESCE(SUM(size), 0) AS bytes FROM files')!;
+    const lastVerifyRow = get<{ value: string }>(db, `SELECT value FROM settings WHERE key = 'lastVerify'`);
+    const lastVerifyAt = lastVerifyRow ? ((JSON.parse(lastVerifyRow.value) as VerifyReport).finishedAt ?? null) : null;
+    return {
+      deviceName: device.name,
+      serverName: os.hostname(),
+      chunkSize: CHUNK_SIZE,
+      concurrency: settings.concurrency,
+      maxFileBytes: settings.maxFileBytes,
+      freeBytes,
+      storedFiles: stats.files,
+      storedBytes: stats.bytes,
+      verifyRunning,
+      lastVerifyAt,
+      oneShotMetadata: true,
+    };
+  });
+
+  app.post(`${API}/verify`, async (req, reply) => {
+    requireDevice(req);
+    startVerify();
+    return reply.code(202).send({ started: true });
   });
 
   function ownSession(req: FastifyRequest, device: DeviceRow): string {
@@ -272,9 +358,18 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
     return { ok: true };
   });
 
-  // One request per file, for Apple Shortcuts and simple clients. Not resumable: a failed
-  // request must be sent again from the start.
-  const OneShotQuery = z.object({ filename: z.string().min(1).max(255), sessionId: z.uuid().optional(), sha256: UploadFinish.shape.sha256 });
+  // One request per file, for Apple Shortcuts and fast small-file uploads from the native app.
+  // Not resumable: a failed request is sent again from the start (large files use the 3-step PATCH flow).
+  const OneShotQuery = z.object({
+    filename: z.string().min(1).max(255),
+    sessionId: z.uuid().optional(),
+    sha256: UploadFinish.shape.sha256,
+    assetId: z.string().min(1).max(200).optional(),
+    hidden: z.enum(['0', '1', 'true', 'false']).optional(),
+    lastModified: z.coerce.number().int().optional(),
+    pairId: z.string().min(1).max(200).optional(),
+    pairName: z.string().min(1).max(255).optional(),
+  });
   app.post(`${API}/files`, async (req) => {
     const device = requireDevice(req);
     const query = OneShotQuery.parse(req.query);
@@ -290,9 +385,35 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
       run(db, 'UPDATE sessions SET selected_count = selected_count + 1 WHERE id = ?', sessionId);
     }
     const mimeType = String(req.headers['content-type'] ?? '').slice(0, 100);
-    const created = await createUpload(ctx, device, { sessionId, filename: query.filename, size: size.data, mimeType, sha256: query.sha256 });
-    if (created.status !== 'receiving') return created;
+    const created = await createUpload(ctx, device, {
+      sessionId,
+      filename: query.filename,
+      size: size.data,
+      mimeType,
+      sha256: query.sha256,
+      assetId: query.assetId,
+      hidden: query.hidden === '1' || query.hidden === 'true',
+      lastModified: query.lastModified,
+      pairId: query.pairId,
+      pairName: query.pairName,
+    });
+    if (created.status !== 'receiving') {
+      // Drain the unread request body so HTTP/1.1 keep-alive connections stay clean.
+      await new Promise<void>((resolve) => {
+        const stream = bodyStream(req);
+        if (stream.readableEnded || stream.destroyed) return resolve();
+        stream.once('end', resolve);
+        stream.once('close', resolve);
+        stream.once('error', () => resolve());
+        stream.resume();
+      });
+      return created;
+    }
     const upload = getUpload(ctx, created.uploadId, device.id);
+    if (created.offset > 0) {
+      // A prior partial resumable upload existed; one-shot sends from byte 0 so reset the temp file.
+      await writeFile(upload.temp_path, '');
+    }
     try {
       await appendChunk(ctx, upload, 0, bodyStream(req));
       return await finishUpload(ctx, upload, query.sha256);
@@ -327,20 +448,26 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
   app.post(`${API}/assets/check`, async (req) => {
     const device = requireDevice(req);
     const { items } = AssetCheck.parse(req.body);
-    const known = await Promise.all(
-      items.map(async (item) => {
-        if (item.sha256 && (await storedOnDisk(item.sha256))) return true;
-        if (!item.assetId) return false;
-        const rows = all<{ sha256: string }>(
-          db,
-          `SELECT f.sha256 FROM uploads u JOIN files f ON f.id = u.file_id
-           WHERE u.device_id = ? AND u.asset_id = ? AND u.status IN ('verified', 'duplicate')`,
-          device.id, item.assetId,
-        );
-        for (const row of rows) if (await storedOnDisk(row.sha256)) return true;
-        return false;
-      }),
-    );
+    const known = new Array<boolean>(items.length);
+    const batchSize = 32;
+    for (let start = 0; start < items.length; start += batchSize) {
+      const slice = items.slice(start, start + batchSize);
+      const flags = await Promise.all(
+        slice.map(async (item) => {
+          if (item.sha256 && (await storedOnDisk(item.sha256))) return true;
+          if (!item.assetId) return false;
+          const rows = all<{ sha256: string }>(
+            db,
+            `SELECT f.sha256 FROM uploads u JOIN files f ON f.id = u.file_id
+             WHERE u.device_id = ? AND u.asset_id = ? AND u.status IN ('verified', 'duplicate')`,
+            device.id, item.assetId,
+          );
+          for (const row of rows) if (await storedOnDisk(row.sha256)) return true;
+          return false;
+        }),
+      );
+      for (let i = 0; i < flags.length; i++) known[start + i] = flags[i]!;
+    }
     return { known };
   });
 
@@ -377,6 +504,7 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
 
   app.get(`${API}/admin/overview`, async (req): Promise<Overview> => {
     requireAdmin(req);
+    flushLogs();
     const count = (sql: string) => get<{ n: number }>(db, sql)!.n;
     const lastVerify = get<{ value: string }>(db, `SELECT value FROM settings WHERE key = 'lastVerify'`);
     return {
@@ -424,20 +552,7 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
 
   app.post(`${API}/admin/verify`, async (req, reply) => {
     requireAdmin(req);
-    if (verifyRunning) throw new HttpError(409, 'verify_running', 'A verification is already running.');
-    verifyRunning = true;
-    void verifyBackup(db, settings.destination, (done, total) => ctx.emit('verify', { done, total }))
-      .then((report) => {
-        const bad = report.missing.length + report.corrupt.length + report.databaseProblems.length;
-        ctx.log(bad ? 'error' : 'info', 'verify_finished', bad
-          ? `Verification found problems: ${report.missing.length} missing, ${report.corrupt.length} corrupted, ${report.databaseProblems.length} database issue(s).`
-          : `Verification passed: all ${report.ok} stored files match their recorded SHA-256.`);
-      })
-      .catch((err: unknown) => ctx.log('error', 'verify_failed', `Verification could not finish: ${err instanceof Error ? err.message : String(err)}`))
-      .finally(() => {
-        verifyRunning = false;
-        ctx.emit('change');
-      });
+    startVerify();
     return reply.code(202).send({ started: true });
   });
 
@@ -452,7 +567,7 @@ export async function buildApp(opts: AppOptions): Promise<BuiltApp> {
   // any dashboard tab is open, a file is being written, or a phone was active moments ago.
   function stopIfDashboardGone(): void {
     clearTimeout(stopTimer);
-    if (dashboards > 0 || !settings.stopWithDashboard || !opts.onStopRequest) return;
+    if (opts.daemon || dashboards > 0 || !settings.stopWithDashboard || !opts.onStopRequest) return;
     const phoneBusy = ctx.active.size > 0 || verifyRunning || Date.now() - lastDeviceActivity < autoStop.deviceQuietMs;
     if (phoneBusy) {
       stopTimer = setTimeout(stopIfDashboardGone, autoStop.recheckMs);

@@ -42,7 +42,7 @@ if (-not (Test-Path 'web\dist\index.html')) {
 }
 
 # --- run ----------------------------------------------------------------------
-$env:PHOTOSYNC_PORT = $Port   # this process only
+$env:MEWTPHOTOS_PORT = $Port   # this process only
 $nodeArgs = @('--disable-warning=ExperimentalWarning', 'server/main.ts')
 if ($NoBrowser) { $nodeArgs += '--no-open' }
 

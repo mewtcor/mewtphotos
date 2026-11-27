@@ -1,4 +1,11 @@
-# Installing the iPhone app (PhotoSync for iOS)
+# Installing the iPhone app (Mewt Photos for iOS)
+
+The app shows on the iPhone as **Mewt Photos** with a violet "m" icon.
+
+**After the rename (one time):** the app has a new identity, so AltStore installs it as a separate app and it has to be paired
+again. Delete the old copy from the iPhone once the new one works. The PC keeps all its history: the server moves its data
+folder (`%LOCALAPPDATA%\MewtPhotos`) and database over by itself the first time it starts. The Safari page on the phone also
+asks to pair once more. In iCloud Drive, builds now live in a `MewtPhotos` folder.
 
 The native iPhone app is built on GitHub, not on a Mac, and installed from Windows with **AltStore** using a free Apple ID.
 It is a personal tool for one iPhone and one PC. This guide covers the one-time setup and the regular refresh.
@@ -7,12 +14,12 @@ For what each build contains and which ones passed on a phone, see [iOS build lo
 
 ## What you need
 
-- A Windows 11 PC running the PhotoSync backup app (see [Windows setup](setup-windows.md)).
+- A Windows 11 PC running the Mewt Photos backup app (see [Windows setup](setup-windows.md)).
 - An iPhone on iOS 18 or later.
 - A free Apple ID. A paid Apple Developer membership is not needed.
 - The iPhone and the PC on the same Wi-Fi network.
-- The latest `PhotoSync.ipa` file. The builds are stored in iCloud Drive (`PhotoSync\PhotoSync.ipa`) or in the
-  `PhotoSync-ipa` download of the latest run of the `ios-build` workflow on GitHub.
+- The latest `MewtPhotos.ipa` file. The builds are stored in iCloud Drive (`MewtPhotos\MewtPhotos.ipa`) or in the
+  `MewtPhotos-ipa` download of the latest run of the `ios-build` workflow on GitHub.
 
 ## One-time setup
 
@@ -28,13 +35,13 @@ For what each build contains and which ones passed on a phone, see [iOS build lo
 AltStore's own install steps change with its releases. If a step here no longer matches the screen, follow AltStore's current
 instructions for the same step.
 
-## Installing PhotoSync
+## Installing Mewt Photos
 
 1. Open **AltStore** on the iPhone and go to **My Apps**.
-2. Tap **+** and choose the `PhotoSync.ipa` file. Copy it to the iPhone first if you can only see it on the PC: in iCloud
-   Drive it appears in the Files app under iCloud Drive → PhotoSync.
+2. Tap **+** and choose the `MewtPhotos.ipa` file. Copy it to the iPhone first if you can only see it on the PC: in iCloud
+   Drive it appears in the Files app under iCloud Drive → MewtPhotos.
 3. Wait for the install to finish. The app appears on the Home Screen.
-4. Open PhotoSync and pair it with the PC, as in [Windows setup](setup-windows.md).
+4. Open Mewt Photos and pair it with the PC, as in [Windows setup](setup-windows.md).
 
 ## Keeping it working (every 7 days)
 
@@ -47,7 +54,7 @@ A free Apple ID signs an app for 7 days. After that the app stops opening until 
 ## Limits of a free Apple ID
 
 - Only a few apps can be installed this way at the same time. Remove an app you no longer use from AltStore to free a slot.
-- Each new build replaces the old one. Install the latest `PhotoSync.ipa` over the existing app rather than deleting it first.
+- Each new build replaces the old one. Install the latest `MewtPhotos.ipa` over the existing app rather than deleting it first.
 - If the app stops opening and refresh fails, check that AltServer is running and that the iPhone is on the same network.
   If it still fails, see [Troubleshooting](troubleshooting.md).
 

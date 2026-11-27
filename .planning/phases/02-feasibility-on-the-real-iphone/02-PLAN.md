@@ -8,7 +8,7 @@ Phase 2 ends with a go/no-go note. A byte mismatch in FEAS-03 stops the project 
 
 - Read-only. The app never changes or deletes library items. Photo access is requested with a clear explanation.
 - Measurement code only. This is not the backup feature. Nothing here writes to the library or claims an item is backed up.
-- Phase 2 adds the Photos framework to the app target. The pure logic goes into PhotoSyncCore and is tested on Linux, as in Phase 1.
+- Phase 2 adds the Photos framework to the app target. The pure logic goes into MewtPhotosCore and is tested on Linux, as in Phase 1.
 - The Mac build budget applies. Plan for about two Mac builds in this phase: one for the diagnostics and export screens, and one for the upload test.
 
 ## Plan 02-01: Diagnostics screen (FEAS-02, FEAS-05)
