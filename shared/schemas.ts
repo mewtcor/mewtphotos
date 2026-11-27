@@ -182,4 +182,6 @@ export interface ClientStatus {
   verifyRunning?: boolean;
   /** Epoch milliseconds when the last verification pass finished, or null if none yet. */
   lastVerifyAt?: number | null;
+  /** True when POST /api/v1/files accepts native metadata query params (assetId, hidden, pairId, pairName, lastModified). */
+  oneShotMetadata?: boolean;
 }

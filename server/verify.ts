@@ -2,16 +2,38 @@
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { VerifyReport } from '../shared/schemas.ts';
-import { all, get, run, type Db, type FileRow } from './db.ts';
+import { all, get, run, tx, type Db, type FileRow } from './db.ts';
 import { hashFile } from './engine.ts';
 
 const MAX_UNTRACKED_LISTED = 200;
+const DB_FLUSH_BATCH = 25;
 
-export async function verifyBackup(db: Db, destination: string, onProgress?: (done: number, total: number) => void): Promise<VerifyReport> {
+export async function verifyBackup(
+  db: Db,
+  destination: string,
+  onProgress?: (done: number, total: number) => void,
+  shouldYield?: () => boolean,
+): Promise<VerifyReport> {
   const report: VerifyReport = { startedAt: Date.now(), finishedAt: 0, checked: 0, ok: 0, missing: [], corrupt: [], untracked: [], databaseProblems: [] };
   const files = all<FileRow>(db, 'SELECT * FROM files ORDER BY id');
+  const pendingUpdates: Array<{ id: number; status: 'ok' | 'missing' | 'corrupt'; at: number }> = [];
+
+  const flushUpdates = () => {
+    if (pendingUpdates.length === 0) return;
+    tx(db, () => {
+      for (const u of pendingUpdates) {
+        run(db, 'UPDATE files SET verify_status = ?, verified_at = ? WHERE id = ?', u.status, u.at, u.id);
+      }
+    });
+    pendingUpdates.length = 0;
+  };
 
   for (const file of files) {
+    // Let active uploads get disk I/O priority so verification never starves or times out a backup.
+    if (shouldYield?.()) {
+      flushUpdates();
+      await new Promise((r) => setTimeout(r, 150));
+    }
     let status: 'ok' | 'missing' | 'corrupt';
     try {
       const st = await stat(file.path);
@@ -21,10 +43,12 @@ export async function verifyBackup(db: Db, destination: string, onProgress?: (do
     }
     if (status === 'ok') report.ok++;
     else report[status].push(file.path);
-    run(db, 'UPDATE files SET verify_status = ?, verified_at = ? WHERE id = ?', status, Date.now(), file.id);
+    pendingUpdates.push({ id: file.id, status, at: Date.now() });
+    if (pendingUpdates.length >= DB_FLUSH_BATCH) flushUpdates();
     report.checked++;
     onProgress?.(report.checked, files.length);
   }
+  flushUpdates();
 
   // Database consistency
   const integrity = all<{ integrity_check: string }>(db, 'PRAGMA integrity_check').map((r) => r.integrity_check);

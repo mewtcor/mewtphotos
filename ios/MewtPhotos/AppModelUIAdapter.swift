@@ -12,11 +12,13 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
     private let model: AppModel
     private var cachedMediaItems: [MewtMediaItem] = []
     private var cachedAlerts: [MewtAlertItem] = []
+    private var formattedDateCache: [String: String] = [:]
 
     init(model: AppModel) {
         self.model = model
         rebuildDerivedState()
-        observeChanges()
+        observeStructuralChanges()
+        observeTelemetryChanges()
     }
 
     // MARK: - Pairing & Server
@@ -140,7 +142,8 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
     var activeItemProgressText: String? {
         guard let record = model.backup?.record, record.nextPending != nil else { return nil }
         let done = record.entries.filter { $0.outcome != .pending }.count
-        return "Item \(done + 1) of \(record.entries.count) · Resumable stream"
+        let phase = model.backup?.activePhaseText ?? "Resumable stream"
+        return "Item \(done + 1) of \(record.entries.count) · \(phase)"
     }
 
     var activeFileProgress: Double {
@@ -307,7 +310,9 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
 
     // MARK: - Observation Bridge & Derived Models
 
-    private func observeChanges() {
+    /// Watches structural state that affects the library list or alerts, rebuilding derived arrays
+    /// only when those actually change (never on high-frequency upload progress ticks).
+    private func observeStructuralChanges() {
         withObservationTracking {
             _ = model.state
             _ = model.isBusy
@@ -330,10 +335,6 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
                 _ = backup.stopMessage
                 _ = backup.running
                 _ = backup.recounting
-                _ = backup.activeFileName
-                _ = backup.activeFileProgress
-                _ = backup.transferSpeedMBps
-                _ = backup.speedSamples
                 _ = backup.inspectedParts
             }
         } onChange: { [weak self] in
@@ -341,9 +342,36 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
                 guard let self else { return }
                 self.rebuildDerivedState()
                 self.objectWillChange.send()
-                self.observeChanges()
+                self.observeStructuralChanges()
             }
         }
+    }
+
+    /// Watches high-frequency live transfer telemetry without rebuilding or sorting the 4,500+ item list.
+    private func observeTelemetryChanges() {
+        withObservationTracking {
+            if let backup = model.backup {
+                _ = backup.activeFileName
+                _ = backup.activePhaseText
+                _ = backup.activeFileProgress
+                _ = backup.transferSpeedMBps
+                _ = backup.speedSamples
+            }
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.objectWillChange.send()
+                self.observeTelemetryChanges()
+            }
+        }
+    }
+
+    private func cachedDateText(assetId: String, date: Date?) -> String {
+        guard let date else { return "" }
+        if let cached = formattedDateCache[assetId] { return cached }
+        let formatted = date.formatted(date: .abbreviated, time: .shortened)
+        formattedDateCache[assetId] = formatted
+        return formatted
     }
 
     private func rebuildDerivedState() {
@@ -378,7 +406,7 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
                     case .livePhoto: return item.hidden ? "Live Photo · Hidden" : "Live Photo"
                     }
                 }()
-                let dateText = item.date.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? ""
+                let dateText = cachedDateText(assetId: item.assetId, date: item.date)
                 let parts = backup.inspectedParts[item.assetId] ?? ["\(item.fileName) (\(kindLabel))"]
                 return MewtMediaItem(
                     id: item.assetId,
@@ -403,7 +431,7 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
         return entries.map { entry in
             let (status, destination, sha) = Self.describe(outcome: entry.outcome, hasCoverage: false, isMissing: false)
             let ext = (entry.fileName as NSString).pathExtension.uppercased()
-            let dateText = entry.date.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? ""
+            let dateText = cachedDateText(assetId: entry.assetId, date: entry.date)
             let parts = backup.inspectedParts[entry.assetId] ?? [entry.fileName]
             return MewtMediaItem(
                 id: entry.assetId,

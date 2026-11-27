@@ -248,7 +248,10 @@ export async function appendChunk(ctx: Ctx, upload: UploadRow, offset: number, b
       else body.resume(); // discard the rest of this request so the error response can be delivered
       throw err;
     }
-    run(ctx.db, 'UPDATE uploads SET updated_at = ? WHERE id = ?', Date.now(), upload.id);
+    const now = Date.now();
+    if (now - upload.updated_at >= 5_000) {
+      run(ctx.db, 'UPDATE uploads SET updated_at = ? WHERE id = ?', now, upload.id);
+    }
     return await currentOffset(upload);
   } catch (err) {
     throw classify(ctx, upload.filename, err);

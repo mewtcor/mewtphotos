@@ -7,6 +7,86 @@ import Photos
 import CryptoKit
 import MewtPhotosCore
 
+/// Tracks the active PhotoKit data export request so `BackupModel.stop()` can cancel it immediately.
+private final class ActiveExportTracker: @unchecked Sendable {
+    static let shared = ActiveExportTracker()
+
+    private let lock = NSLock()
+    private var requestId: PHAssetResourceDataRequestID?
+    private var cancelHandler: (() -> Void)?
+
+    func register(id: PHAssetResourceDataRequestID, onCancel: @escaping () -> Void) {
+        lock.lock()
+        requestId = id
+        cancelHandler = onCancel
+        lock.unlock()
+    }
+
+    func clear(id: PHAssetResourceDataRequestID) {
+        lock.lock()
+        if requestId == id {
+            requestId = nil
+            cancelHandler = nil
+        }
+        lock.unlock()
+    }
+
+    func cancelActive() {
+        lock.lock()
+        let id = requestId
+        let handler = cancelHandler
+        requestId = nil
+        cancelHandler = nil
+        lock.unlock()
+        if let id {
+            PHAssetResourceManager.default().cancelDataRequest(id)
+        }
+        handler?()
+    }
+}
+
+private final class ExportState: @unchecked Sendable {
+    let lock = NSLock()
+    var resumed = false
+    var lastActivity = Date()
+    var bytes: Int64 = 0
+    var hasher = SHA256()
+    var writeError: Error?
+    var requestId: PHAssetResourceDataRequestID?
+    var watchdog: DispatchSourceTimer?
+    var fileHandle: FileHandle?
+
+    init(fileHandle: FileHandle) {
+        self.fileHandle = fileHandle
+    }
+}
+
+private final class RecordSaveThrottle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastSavedCompleted = 0
+    private var lastSavedProblems = 0
+    private var lastSaveAt = Date.distantPast
+
+    func shouldSave(_ record: RunRecord) -> Bool {
+        let totals = record.totals
+        let completed = totals.verified + totals.alreadyOnPC + totals.failed + totals.unavailable
+        let problems = totals.failed + totals.unavailable
+        let now = Date()
+        lock.lock()
+        defer { lock.unlock() }
+        let due = record.status != .running
+            || problems != lastSavedProblems
+            || (completed - lastSavedCompleted) >= 15
+            || now.timeIntervalSince(lastSaveAt) >= 3.0
+        if due {
+            lastSavedCompleted = completed
+            lastSavedProblems = problems
+            lastSaveAt = now
+        }
+        return due
+    }
+}
+
 @MainActor
 @Observable
 final class BackupModel {
@@ -29,16 +109,22 @@ final class BackupModel {
     private(set) var isBackgroundRun = false
     /// Live transfer telemetry for the active file.
     private(set) var activeFileName = ""
+    private(set) var activePhaseText = "Resumable stream"
     private(set) var activeFileProgress: Double = 0
     private(set) var transferSpeedMBps: Double = 0
     private(set) var speedSamples: [Double] = [0, 0, 0, 0, 0, 0, 0, 0]
     /// Lazily inspected PHAssetResource descriptions keyed by asset localIdentifier.
     private(set) var inspectedParts: [String: [String]] = [:]
     private var stopRequested = false
+    private var activeSendTasks: [UUID: Task<SendResult, Error>] = [:]
+    private var pauseTasks: [UUID: Task<Void, Never>] = [:]
+    private var lastTelemetryAt: ContinuousClock.Instant?
     private let store: RunStore
     private let work: URL
+    private let log: RunLog?
 
-    init(supportDirectory: URL) {
+    init(supportDirectory: URL, log: RunLog? = nil) {
+        self.log = log
         store = RunStore(directory: supportDirectory)
         work = supportDirectory.appendingPathComponent("backup-work", isDirectory: true)
         record = store.load()
@@ -143,9 +229,15 @@ final class BackupModel {
         }
     }
 
-    /// Asks the run to stop after the item in progress. The record keeps what is done.
+    /// Stops the run immediately, cancelling any in-flight export, upload, or retry wait.
+    /// The interrupted item stays pending in the run record so the next run resumes cleanly.
     func stop() {
         stopRequested = true
+        activePhaseText = "Stopping…"
+        for task in activeSendTasks.values { task.cancel() }
+        for task in pauseTasks.values { task.cancel() }
+        StreamUploader.shared.cancelActive()
+        ActiveExportTracker.shared.cancelActive()
     }
 
     /// Starts a run, or continues the unfinished one. Items the PC already has are skipped by identity.
@@ -165,9 +257,11 @@ final class BackupModel {
         stopRequested = false
         stopMessage = nil
         activeFileName = ""
+        activePhaseText = "Checking library…"
         activeFileProgress = 0
         transferSpeedMBps = 0
         speedSamples = [0, 0, 0, 0, 0, 0, 0, 0]
+        lastTelemetryAt = nil
         if !isBackgroundTask {
             UIApplication.shared.isIdleTimerDisabled = true
         }
@@ -175,12 +269,21 @@ final class BackupModel {
             running = false
             isBackgroundRun = false
             activeFileName = ""
+            activePhaseText = "Resumable stream"
             activeFileProgress = 0
             transferSpeedMBps = 0
+            activeSendTasks.removeAll()
+            pauseTasks.removeAll()
+            lastTelemetryAt = nil
             if !isBackgroundTask {
                 UIApplication.shared.isIdleTimerDisabled = false
             }
         }
+
+        if pairing.serverStatus == nil {
+            await pairing.refreshServerStatus()
+        }
+        let useOneShot = pairing.serverStatus?.oneShotMetadata == true
 
         let (items, paired) = BackupModel.libraryItems()
         librarySnapshot = items
@@ -190,6 +293,7 @@ final class BackupModel {
             flags = try await connection.client.knownAssets(key: connection.key, assetIds: items.map(\.assetId))
         } catch {
             stopMessage = "Could not check with the server. Make sure it is reachable, then try again."
+            await log?.append(.error, code: "backup_check_failed", "knownAssets check failed: \(error.localizedDescription)")
             return
         }
         var known = Set<String>()
@@ -200,20 +304,74 @@ final class BackupModel {
         let opened = RunRecord.open(existing: store.load(), plan: plan, at: Date())
         record = opened
         let store = self.store
+        let runLog = self.log
+        let pendingCount = opened.entries.filter { $0.outcome == .pending }.count
+        let sharedSessionId: String? = pendingCount > 0
+            ? (try? await connection.client.createSession(key: connection.key, selectedCount: pendingCount, libraryCount: items.count))
+            : nil
+        await runLog?.append(
+            .info,
+            code: "backup_start",
+            "items=\(opened.entries.count) pending=\(pendingCount) bg=\(isBackgroundTask) oneShot=\(useOneShot) sharedSession=\(sharedSessionId != nil)"
+        )
 
+        let saveThrottle = RecordSaveThrottle()
         let runner = BackupRunner(
             prepare: { entry in
                 await MainActor.run {
-                    self.activeFileName = entry.fileName
-                    self.activeFileProgress = 0
+                    if self.activeFileName.isEmpty {
+                        self.activeFileName = entry.fileName
+                        self.activePhaseText = "Preparing original…"
+                        self.activeFileProgress = 0
+                    }
                 }
-                return try await BackupModel.prepare(entry, work: await self.workFolder())
+                do {
+                    return try await BackupModel.prepare(entry, work: await self.workFolder())
+                } catch {
+                    if !(error is CancellationError) {
+                        await runLog?.append(.warn, code: "backup_prepare_error", "\(entry.fileName): \(error)")
+                    }
+                    throw error
+                }
             },
             send: { item in
-                try await BackupModel.send(item, connection: connection, work: await self.workFolder()) { fileName, fraction, mbps in
-                    Task { @MainActor in
-                        self.recordTransferSample(fileName: fileName, fraction: fraction, mbps: mbps)
+                let taskId = UUID()
+                let task = Task<SendResult, Error> {
+                    try await BackupModel.send(
+                        item,
+                        connection: connection,
+                        work: await self.workFolder(),
+                        sessionId: sharedSessionId,
+                        useOneShot: useOneShot,
+                        onPhase: { phase in
+                            Task { @MainActor in
+                                if !self.stopRequested {
+                                    self.activeFileName = item.entry.fileName
+                                    self.activePhaseText = phase
+                                }
+                            }
+                        },
+                        onProgress: { fileName, fraction, mbps in
+                            Task { @MainActor in
+                                self.recordTransferSample(fileName: fileName, fraction: fraction, mbps: mbps)
+                            }
+                        }
+                    )
+                }
+                await MainActor.run {
+                    self.activeSendTasks[taskId] = task
+                    if self.stopRequested { task.cancel() }
+                }
+                defer {
+                    Task { @MainActor in self.activeSendTasks.removeValue(forKey: taskId) }
+                }
+                do {
+                    return try await task.value
+                } catch {
+                    if !(error is CancellationError) {
+                        await runLog?.append(.warn, code: "backup_send_error", "\(item.entry.fileName): \(error)")
                     }
+                    throw error
                 }
             },
             discard: { item in
@@ -221,21 +379,53 @@ final class BackupModel {
                 for part in item.companions { try? FileManager.default.removeItem(at: part.fileURL) }
             },
             stopRequested: { await self.stopFlag() },
-            pause: { seconds in try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000)) })
+            pause: { seconds in
+                await self.cancellablePause(seconds: seconds)
+            },
+            maxConcurrency: 3)
         let result = await runner.run(opened, now: Date()) { saved in
-            try? store.save(saved)
+            if saveThrottle.shouldSave(saved) {
+                try? store.save(saved)
+            }
             Task { @MainActor in self.record = saved }
         }
+        try? store.save(result.record)
         record = result.record
         stopMessage = result.stopMessage
+        let totals = result.record.totals
+        await runLog?.append(
+            .info,
+            code: "backup_end",
+            "status=\(result.record.status.rawValue) verified=\(totals.verified) onServer=\(totals.alreadyOnPC) failed=\(totals.failed) unavail=\(totals.unavailable) pending=\(totals.pending)"
+        )
         await refreshPCCount(pairing: pairing)
         await refreshCoverage(pairing: pairing)
         await pairing.refreshServerStatus()
     }
 
+    private func cancellablePause(seconds: Double) async {
+        guard !stopRequested else { return }
+        activePhaseText = "Retrying in \(max(1, Int(seconds.rounded())))s…"
+        let id = UUID()
+        let sleepTask = Task<Void, Never> {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
+        pauseTasks[id] = sleepTask
+        await sleepTask.value
+        pauseTasks.removeValue(forKey: id)
+    }
+
     private func recordTransferSample(fileName: String, fraction: Double, mbps: Double) {
+        let clamped = min(max(fraction, 0), 1)
+        let now = ContinuousClock.now
+        if clamped < 1.0, let last = lastTelemetryAt {
+            let parts = last.duration(to: now).components
+            let elapsed = Double(parts.seconds) + Double(parts.attoseconds) / 1e18
+            if elapsed < 0.1 { return }
+        }
+        lastTelemetryAt = now
         activeFileName = fileName
-        activeFileProgress = min(max(fraction, 0), 1)
+        activeFileProgress = clamped
         if mbps > 0 {
             transferSpeedMBps = mbps
             speedSamples.append(mbps)
@@ -384,36 +574,141 @@ final class BackupModel {
                             hidden: asset.isHidden, companions: companions)
     }
 
-    /// Writes one original to the work folder and hashes it. Photos refuses to overwrite a file, so the name is
-    /// always new. Network access is off: an original that exists only in iCloud cannot be read.
+    /// Streams one original to the work folder while computing its SHA-256 in a single pass.
+    /// Network access is off so iCloud-only originals fail immediately as unavailable; a 60s inactivity
+    /// watchdog and `ActiveExportTracker` guarantee PhotoKit can never stall the backup forever.
     private static func export(_ resource: PHAssetResource, work: URL) async throws -> PreparedPart {
+        try Task.checkCancellation()
         let url = work.appendingPathComponent(UUID().uuidString + ".part")
+        guard FileManager.default.createFile(atPath: url.path, contents: nil) else {
+            throw ItemError.failed("Could not create a temporary copy on this iPhone.")
+        }
+        let handle: FileHandle
+        do {
+            handle = try FileHandle(forWritingTo: url)
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            throw ItemError.failed("Could not open a temporary copy on this iPhone.")
+        }
+
         let options = PHAssetResourceRequestOptions()
         options.isNetworkAccessAllowed = false
-        do {
-            try await PHAssetResourceManager.default().writeData(for: resource, toFile: url, options: options)
-        } catch {
-            try? FileManager.default.removeItem(at: url)
-            throw ItemError.unavailable(BackupPlanner.unsupportedReason)
-        }
-        do {
-            let bytes = (try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
-            let hash = try sha256(of: url)
-            return PreparedPart(fileName: resource.originalFilename, fileURL: url, bytes: bytes, sha256: hash)
-        } catch {
-            try? FileManager.default.removeItem(at: url)
-            throw ItemError.failed("Could not read the copy on this iPhone.")
+
+        let state = ExportState(fileHandle: handle)
+
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PreparedPart, Error>) in
+            func finish(_ result: Result<PreparedPart, Error>) {
+                state.lock.lock()
+                guard !state.resumed else {
+                    state.lock.unlock()
+                    return
+                }
+                state.resumed = true
+                let timer = state.watchdog
+                state.watchdog = nil
+                let fh = state.fileHandle
+                state.fileHandle = nil
+                let reqId = state.requestId
+                state.lock.unlock()
+
+                timer?.cancel()
+                if let reqId { ActiveExportTracker.shared.clear(id: reqId) }
+                try? fh?.close()
+                if case .failure = result {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                continuation.resume(with: result)
+            }
+
+            let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+            timer.schedule(deadline: .now() + 5, repeating: 5)
+            timer.setEventHandler {
+                state.lock.lock()
+                let inactive = Date().timeIntervalSince(state.lastActivity)
+                let reqId = state.requestId
+                let alreadyResumed = state.resumed
+                state.lock.unlock()
+                if !alreadyResumed && inactive >= 60 {
+                    if let reqId {
+                        PHAssetResourceManager.default().cancelDataRequest(reqId)
+                    }
+                    finish(.failure(ItemError.transient("Reading this original from Photos timed out. It will be tried again.")))
+                }
+            }
+            state.lock.lock()
+            state.watchdog = timer
+            state.lock.unlock()
+            timer.resume()
+
+            let reqId = PHAssetResourceManager.default().requestData(
+                for: resource,
+                options: options,
+                dataReceivedHandler: { chunk in
+                    state.lock.lock()
+                    guard !state.resumed, state.writeError == nil, let fh = state.fileHandle else {
+                        state.lock.unlock()
+                        return
+                    }
+                    state.lastActivity = Date()
+                    do {
+                        try fh.write(contentsOf: chunk)
+                        state.hasher.update(data: chunk)
+                        state.bytes += Int64(chunk.count)
+                        state.lock.unlock()
+                    } catch {
+                        state.writeError = error
+                        let id = state.requestId
+                        state.lock.unlock()
+                        if let id {
+                            PHAssetResourceManager.default().cancelDataRequest(id)
+                        }
+                    }
+                },
+                completionHandler: { error in
+                    state.lock.lock()
+                    let writeErr = state.writeError
+                    let bytes = state.bytes
+                    let hash = state.hasher.finalize().map { String(format: "%02x", $0) }.joined()
+                    state.lock.unlock()
+
+                    if writeErr != nil {
+                        finish(.failure(ItemError.failed("Could not save a temporary copy on this iPhone.")))
+                    } else if error != nil {
+                        finish(.failure(ItemError.unavailable(BackupPlanner.unsupportedReason)))
+                    } else {
+                        finish(.success(PreparedPart(fileName: resource.originalFilename, fileURL: url, bytes: bytes, sha256: hash)))
+                    }
+                }
+            )
+
+            state.lock.lock()
+            state.requestId = reqId
+            let alreadyResumed = state.resumed
+            state.lock.unlock()
+
+            if !alreadyResumed {
+                ActiveExportTracker.shared.register(id: reqId) {
+                    finish(.failure(CancellationError()))
+                }
+            }
         }
     }
 
-    /// Opens the upload on the PC, sends the bytes in the background, and finishes it. Only `verified` or
+    /// Opens the upload on the PC, streams the bytes over Wi-Fi, and finishes it. Only `verified` or
     /// `duplicate` from the PC counts as backed up.
     /// Sends every part of the photo. Companions go first, without the asset identifier, and the main file last with it,
     /// so the PC counts the photo as held only after every part is verified.
+    /// Files smaller than this use the single-request `POST /api/v1/files` endpoint (when supported by
+    /// the server) to avoid 3 round-trips per photo; larger files use resumable `PATCH`.
+    private static let oneShotThresholdBytes: Int64 = 16 * 1024 * 1024
+
     static func send(
         _ item: PreparedItem,
         connection: PairedConnection,
         work: URL,
+        sessionId: String? = nil,
+        useOneShot: Bool = false,
+        onPhase: (@Sendable (String) -> Void)? = nil,
         onProgress: (@Sendable (String, Double, Double) -> Void)? = nil
     ) async throws -> SendResult {
         let pairId: String? = item.companions.isEmpty ? nil : item.entry.assetId
@@ -421,16 +716,19 @@ final class BackupModel {
         for companion in item.companions {
             results.append(try await sendPart(companion, item: item, assetId: nil, pairId: pairId,
                                               pairName: item.entry.fileName, connection: connection,
-                                              onProgress: onProgress))
+                                              sessionId: sessionId, useOneShot: useOneShot,
+                                              onPhase: onPhase, onProgress: onProgress))
         }
         let main = PreparedPart(fileName: item.entry.fileName, fileURL: item.fileURL, bytes: item.bytes, sha256: item.sha256)
         results.append(try await sendPart(main, item: item, assetId: item.entry.assetId, pairId: pairId,
                                           pairName: item.companions.first?.fileName, connection: connection,
-                                          onProgress: onProgress))
+                                          sessionId: sessionId, useOneShot: useOneShot,
+                                          onPhase: onPhase, onProgress: onProgress))
         return PhotoParts.combine(results)
     }
 
-    /// Opens the upload for one file, sends the bytes in the background, and finishes it.
+    /// Sends one file: single-request `POST /api/v1/files` for smaller files on servers that support
+    /// native metadata, or the 3-step resumable `beginUpload` -> `PATCH` -> `finishUpload` flow for large files.
     private static func sendPart(
         _ part: PreparedPart,
         item: PreparedItem,
@@ -438,16 +736,41 @@ final class BackupModel {
         pairId: String?,
         pairName: String?,
         connection: PairedConnection,
+        sessionId: String?,
+        useOneShot: Bool,
+        onPhase: (@Sendable (String) -> Void)? = nil,
         onProgress: (@Sendable (String, Double, Double) -> Void)? = nil
     ) async throws -> SendResult {
+        try Task.checkCancellation()
         let name = part.fileName
+        let lastModified = item.entry.date.map { Int64($0.timeIntervalSince1970 * 1000) }
+
+        if useOneShot && part.bytes > 0 && part.bytes < oneShotThresholdBytes,
+           let url = ServerClient.oneShotUploadURL(
+               base: connection.base,
+               filename: name,
+               sessionId: sessionId,
+               sha256: part.sha256,
+               assetId: assetId,
+               hidden: item.hidden,
+               lastModified: lastModified,
+               pairId: pairId,
+               pairName: pairName
+           ) {
+            return try await sendPartOneShot(
+                part, url: url, connection: connection, onPhase: onPhase, onProgress: onProgress
+            )
+        }
+
+        onPhase?("Opening upload…")
         let begun: BegunUpload
         do {
             begun = try await connection.client.beginUpload(
                 key: connection.key, filename: name, mimeType: mimeType(for: name), size: part.bytes,
                 sha256: part.sha256, assetId: assetId, hidden: item.hidden,
-                lastModified: item.entry.date.map { Int64($0.timeIntervalSince1970 * 1000) },
-                pairId: pairId, pairName: pairName)
+                lastModified: lastModified, pairId: pairId, pairName: pairName, sessionId: sessionId)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw mapped(error)
         }
@@ -461,6 +784,7 @@ final class BackupModel {
             defer {
                 if source != part.fileURL { try? FileManager.default.removeItem(at: source) }
             }
+            onPhase?("Uploading…")
             var request = URLRequest(url: connection.base.appendingPathComponent("api/v1/uploads/\(begun.uploadId)"))
             request.httpMethod = "PATCH"
             request.setValue("Bearer \(connection.key.revealForAuthorization())", forHTTPHeaderField: "Authorization")
@@ -469,15 +793,21 @@ final class BackupModel {
             let started = ContinuousClock.now
             let baseOffset = begun.offset
             let totalSize = part.bytes
-            try await transfer(request, from: source) { sentBytes, _ in
+            let bytesToSend = totalSize - baseOffset
+            _ = try await transfer(request, from: source) { sentBytes, _ in
                 let elapsedParts = started.duration(to: .now).components
                 let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
-                let mbps = elapsed > 0.05 ? (Double(sentBytes) / 1_000_000.0) / elapsed : 0
+                let mbps = sentBytes > 0 ? (Double(sentBytes) / 1_000_000.0) / max(elapsed, 0.005) : 0
                 let fraction = totalSize > 0 ? Double(baseOffset + sentBytes) / Double(totalSize) : 1.0
                 onProgress?(name, fraction, mbps)
             }
+            let elapsedParts = started.duration(to: .now).components
+            let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
+            let finalMbps = bytesToSend > 0 ? (Double(bytesToSend) / 1_000_000.0) / max(elapsed, 0.005) : 0
+            onProgress?(name, 1.0, finalMbps)
         }
 
+        onPhase?("Verifying on server…")
         do {
             let finished = try await connection.client.finishUpload(key: connection.key, uploadId: begun.uploadId, sha256: part.sha256)
             switch finished.status {
@@ -491,27 +821,91 @@ final class BackupModel {
             }
         } catch let error as ItemError {
             throw error
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as ServerClientError {
+            throw mappedFinish(error)
         } catch {
             throw ItemError.transient("The PC has not confirmed this photo yet. It will be tried again.")
         }
     }
 
-    /// The background transfer, as an async call. A full PC disk is reported as `pcFull` so the run stops.
+    /// Single-request upload + server SHA-256 verification for smaller files (`< 16 MB`).
+    private static func sendPartOneShot(
+        _ part: PreparedPart,
+        url: URL,
+        connection: PairedConnection,
+        onPhase: (@Sendable (String) -> Void)?,
+        onProgress: (@Sendable (String, Double, Double) -> Void)?
+    ) async throws -> SendResult {
+        let name = part.fileName
+        onPhase?("Uploading…")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(connection.key.revealForAuthorization())", forHTTPHeaderField: "Authorization")
+        request.setValue(mimeType(for: name), forHTTPHeaderField: "Content-Type")
+        let started = ContinuousClock.now
+        let totalSize = part.bytes
+        let body = try await transfer(request, from: part.fileURL) { sentBytes, _ in
+            let elapsedParts = started.duration(to: .now).components
+            let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
+            let mbps = sentBytes > 0 ? (Double(sentBytes) / 1_000_000.0) / max(elapsed, 0.005) : 0
+            let fraction = totalSize > 0 ? Double(sentBytes) / Double(totalSize) : 1.0
+            onProgress?(name, fraction, mbps)
+        }
+        let elapsedParts = started.duration(to: .now).components
+        let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
+        let finalMbps = totalSize > 0 ? (Double(totalSize) / 1_000_000.0) / max(elapsed, 0.005) : 0
+        let reply: (status: String, endToEndVerified: Bool)
+        do {
+            reply = try ServerClient.decodeUploadResult(from: body)
+        } catch {
+            throw ItemError.transient("The PC has not confirmed this photo yet. It will be tried again.")
+        }
+        switch reply.status {
+        case "verified":
+            onProgress?(name, 1.0, finalMbps)
+            return .verified
+        case "duplicate":
+            onProgress?(name, 1.0, finalMbps)
+            return .alreadyOnPC
+        default:
+            throw ItemError.failed("The PC did not confirm this photo.")
+        }
+    }
+
+    /// Streams the file over an in-process URLSession with stall detection and immediate cancellation.
+    /// Returns the response body on 2xx. A full PC disk is reported as `pcFull` so the run stops.
     private static func transfer(
         _ request: URLRequest,
         from file: URL,
         progress: ((Int64, Int64) -> Void)? = nil
-    ) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            BackgroundUploader.shared.send(request, fromFile: file, progress: progress) { status, error in
+    ) async throws -> Data {
+        try Task.checkCancellation()
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
+            StreamUploader.shared.send(request, fromFile: file, progress: progress) { status, data, error in
                 if let status, (200..<300).contains(status) {
-                    continuation.resume()
+                    continuation.resume(returning: data)
                 } else if status == 507 {
                     continuation.resume(throwing: ItemError.pcFull)
                 } else if status == 401 {
                     continuation.resume(throwing: ItemError.failed("The PC no longer accepts this iPhone. Pair again."))
+                } else if let nsError = error as NSError?,
+                          nsError.domain == NSURLErrorDomain,
+                          nsError.code == NSURLErrorCancelled {
+                    continuation.resume(throwing: CancellationError())
+                } else if let nsError = error as NSError?,
+                          nsError.domain == NSURLErrorDomain,
+                          nsError.code == NSURLErrorTimedOut {
+                    continuation.resume(throwing: ItemError.transient("The transfer stalled. It will be tried again."))
                 } else if let nsError = error as NSError?, NetworkErrors.isTransient(domain: nsError.domain, code: nsError.code) {
                     continuation.resume(throwing: ItemError.transient("The connection dropped while sending. It will be tried again."))
+                } else if let status {
+                    let parsed = ServerClient.decodeErrorBody(from: data, status: status)
+                    let retryable = status >= 500 || status == 408 || status == 422
+                        || (status == 409 && parsed.code == "upload_busy")
+                        || parsed.code == "client_disconnected" || parsed.code == "upload_timeout"
+                    continuation.resume(throwing: retryable ? ItemError.transient(parsed.message) : ItemError.failed(parsed.message))
                 } else {
                     continuation.resume(throwing: ItemError.transient("The PC did not take this photo. It will be tried again."))
                 }
@@ -521,9 +915,12 @@ final class BackupModel {
 
     private static func mapped(_ error: Error) -> ItemError {
         switch error as? ServerClientError {
-        case .server(let status, _, let message)?:
+        case .server(let status, let code, let message)?:
             if status == 507 { return .pcFull }
             if status == 401 { return .failed("The PC no longer accepts this iPhone. Pair again.") }
+            if status >= 500 || status == 408 || (status == 409 && code == "upload_busy") {
+                return .transient(message)
+            }
             return .failed(message)
         case .network(let failure)?:
             return NetworkErrors.isTransient(domain: failure.domain, code: failure.code)
@@ -531,6 +928,22 @@ final class BackupModel {
                 : .failed("Could not reach the PC.")
         default:
             return .failed("Something went wrong while sending this photo.")
+        }
+    }
+
+    private static func mappedFinish(_ error: ServerClientError) -> ItemError {
+        switch error {
+        case .server(let status, let code, let message):
+            if status == 507 { return .pcFull }
+            if status == 401 { return .failed("The PC no longer accepts this iPhone. Pair again.") }
+            if status >= 500 || status == 408 || (status == 409 && code == "upload_busy") {
+                return .transient(message)
+            }
+            return .failed(message)
+        case .network:
+            return .transient("The PC has not confirmed this photo yet. It will be tried again.")
+        default:
+            return .failed("The PC did not confirm this photo.")
         }
     }
 
@@ -551,16 +964,6 @@ final class BackupModel {
     private static func freeBytes() -> Int64 {
         let attributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())
         return (attributes?[.systemFreeSize] as? Int64) ?? Int64.max
-    }
-
-    private static func sha256(of url: URL) throws -> String {
-        let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
-        var hasher = SHA256()
-        while let chunk = try handle.read(upToCount: 8 * 1024 * 1024), !chunk.isEmpty {
-            hasher.update(data: chunk)
-        }
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 }
 

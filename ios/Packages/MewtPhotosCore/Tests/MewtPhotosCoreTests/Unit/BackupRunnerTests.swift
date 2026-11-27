@@ -170,6 +170,111 @@ struct BackupRunnerTests {
         _ = await runner(log).run(entries(["A", "B"]), now: anyDate) { _ in saves.bump() }
         #expect(saves.count >= 3)
     }
+
+    @Test("stopping during a transient retry aborts cleanly and keeps the item pending")
+    func stopDuringTransientRetry() async {
+        let log = StepLog(
+            sendScript: ["A": [.failure(.transient("stalled")), .success(.verified)]],
+            stopAfter: 1
+        )
+        let result = await runner(log).run(entries(["A", "B"]), now: anyDate) { _ in }
+        #expect(result.record.status == .stopped)
+        #expect(result.record.entries.map(\.outcome) == [.pending, .pending])
+        #expect(await log.pauses.isEmpty)
+    }
+
+    @Test("cancellation after a stop request keeps the interrupted item pending")
+    func cancelAfterStopKeepsPending() async {
+        let log = StepLog(stopAfter: 1)
+        let cancelling = BackupRunner(
+            prepare: { try await log.prepare($0) },
+            send: { _ in
+                await log.countSent()
+                throw CancellationError()
+            },
+            discard: { item in Task { await log.discard(item) } },
+            stopRequested: { await log.stopRequested() },
+            pause: { await log.pause($0) })
+        let result = await cancelling.run(entries(["A", "B"]), now: anyDate) { _ in }
+        #expect(result.record.status == .stopped)
+        #expect(result.record.entries.map(\.outcome) == [.pending, .pending])
+    }
+
+    @Test("pipelined runner uploads small files concurrently and discards every prepared copy")
+    func pipelinedConcurrentUploads() async {
+        let tracker = PipelineTracker()
+        let runner = BackupRunner(
+            prepare: { entry in
+                PreparedItem(entry: entry, fileURL: URL(fileURLWithPath: "/tmp/\(entry.assetId)"), bytes: 1_000, sha256: "h-\(entry.assetId)")
+            },
+            send: { _ in
+                await tracker.beginSend()
+                try? await Task.sleep(nanoseconds: 40_000_000)
+                await tracker.endSend()
+                return .verified
+            },
+            discard: { item in Task { await tracker.markDiscarded(item.entry.assetId) } },
+            stopRequested: { false },
+            pause: { _ in },
+            maxConcurrency: 3
+        )
+        let ids = ["A", "B", "C", "D", "E", "F"]
+        let result = await runner.run(entries(ids), now: anyDate) { _ in }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        #expect(result.record.status == .finished)
+        #expect(result.record.entries.map(\.outcome) == Array(repeating: .verified, count: ids.count))
+        #expect(await tracker.peak >= 2)
+        #expect(await tracker.discarded == Set(ids))
+    }
+
+    @Test("pipelined runner halts cleanly on pcFull and discards queued temp files")
+    func pipelinedPcFullStopsAndCleansUp() async {
+        let state = PipelineTracker()
+        let runner = BackupRunner(
+            prepare: { entry in
+                await state.markPrepared(entry.assetId)
+                return PreparedItem(entry: entry, fileURL: URL(fileURLWithPath: "/tmp/\(entry.assetId)"), bytes: 1_000, sha256: "h")
+            },
+            send: { item in
+                if item.entry.assetId == "A" { throw ItemError.pcFull }
+                try? await Task.sleep(nanoseconds: 30_000_000)
+                return .verified
+            },
+            discard: { item in Task { await state.markDiscarded(item.entry.assetId) } },
+            stopRequested: { false },
+            pause: { _ in },
+            maxConcurrency: 3
+        )
+        let result = await runner.run(entries(["A", "B", "C", "D", "E"]), now: anyDate) { _ in }
+        try? await Task.sleep(nanoseconds: 60_000_000)
+        #expect(result.record.status == .stopped)
+        #expect(result.stopMessage == BackupRunner.pcFullMessage)
+        #expect(await state.discarded == await state.prepared)
+    }
+}
+
+private actor PipelineTracker {
+    var active = 0
+    var peak = 0
+    var prepared: Set<String> = []
+    var discarded: Set<String> = []
+
+    func beginSend() {
+        active += 1
+        if active > peak { peak = active }
+    }
+
+    func endSend() {
+        active -= 1
+    }
+
+    func markPrepared(_ id: String) {
+        prepared.insert(id)
+    }
+
+    func markDiscarded(_ id: String) {
+        discarded.insert(id)
+    }
 }
 
 /// Counts saves from the runner's save closure (which is called on the runner's own task).

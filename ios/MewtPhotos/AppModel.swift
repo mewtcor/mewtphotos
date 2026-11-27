@@ -19,11 +19,15 @@ struct AppEnvironment {
         let support = try fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask,
                                           appropriateFor: nil, create: true)
         let configuration = URLSessionConfiguration.default
-        configuration.waitsForConnectivity = true
+        configuration.waitsForConnectivity = false
         configuration.allowsCellularAccess = false
-        configuration.timeoutIntervalForRequest = 20
-        configuration.timeoutIntervalForResource = 30
-        configuration.httpMaximumConnectionsPerHost = 1
+        // /uploads/:id/finish fsyncs and re-hashes the whole file on the server's backup drive, which
+        // can take over a minute for large videos on an external disk (especially during verification).
+        configuration.timeoutIntervalForRequest = 120
+        configuration.timeoutIntervalForResource = 600
+        configuration.httpMaximumConnectionsPerHost = 4
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         let log = RunLog(directory: documents)
         let flow = PairingFlow(
             store: PairingStore(directory: support),
@@ -60,12 +64,13 @@ final class AppModel {
     private(set) var lastAutoBackupSummary: String? = BackgroundSyncScheduler.shared.lastRunSummaryText
 
     private let environment: AppEnvironment?
+    private var verifyPollTask: Task<Void, Never>?
 
     init() {
         do {
             let made = try AppEnvironment.make()
             environment = made
-            backup = BackupModel(supportDirectory: made.supportDirectory)
+            backup = BackupModel(supportDirectory: made.supportDirectory, log: made.log)
         } catch {
             environment = nil
             errorText = "Mewt Photos could not open its storage on this phone. Restart the phone and try again."
@@ -144,12 +149,40 @@ final class AppModel {
         guard let connection = await connection() else {
             serverStatus = nil
             verifying = false
+            verifyPollTask?.cancel()
+            verifyPollTask = nil
             return
         }
         if let status = try? await connection.client.status(key: connection.key) {
             serverStatus = status
             verifying = status.verifyRunning ?? false
             connectionText = "Connected to " + status.serverName
+            if verifying {
+                ensureVerifyPolling()
+            } else {
+                verifyPollTask?.cancel()
+                verifyPollTask = nil
+            }
+        }
+    }
+
+    private func ensureVerifyPolling() {
+        guard verifyPollTask == nil else { return }
+        verifyPollTask = Task { @MainActor [weak self] in
+            defer { self?.verifyPollTask = nil }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(10))
+                guard let self, !Task.isCancelled else { return }
+                guard let connection = await self.connection() else {
+                    self.verifying = false
+                    return
+                }
+                if let status = try? await connection.client.status(key: connection.key) {
+                    self.serverStatus = status
+                    self.verifying = status.verifyRunning ?? false
+                    if !self.verifying { return }
+                }
+            }
         }
     }
 
@@ -162,6 +195,7 @@ final class AppModel {
             _ = try await connection.client.triggerVerify(key: connection.key)
             noticeText = "Server SHA-256 verification started."
             await refreshServerStatus()
+            if verifying { ensureVerifyPolling() }
         } catch ServerClientError.server(let status, _, let message) where status == 409 {
             noticeText = message
             await refreshServerStatus()
@@ -307,6 +341,8 @@ final class AppModel {
     /// Forgets the PC on this iPhone. Pairing again needs a new code from the PC.
     func forget() async {
         guard let environment else { return }
+        verifyPollTask?.cancel()
+        verifyPollTask = nil
         BackgroundSyncScheduler.shared.cancelAll(reason: "forgot_server")
         await environment.flow.forget()
         connectionText = nil

@@ -31,6 +31,7 @@ public struct ServerStatus: Codable, Equatable, Sendable {
     public let storedBytes: Int64?
     public let verifyRunning: Bool?
     public let lastVerifyAt: Int64?
+    public let oneShotMetadata: Bool?
 
     public init(
         deviceName: String,
@@ -42,7 +43,8 @@ public struct ServerStatus: Codable, Equatable, Sendable {
         storedFiles: Int? = nil,
         storedBytes: Int64? = nil,
         verifyRunning: Bool? = nil,
-        lastVerifyAt: Int64? = nil
+        lastVerifyAt: Int64? = nil,
+        oneShotMetadata: Bool? = nil
     ) {
         self.deviceName = deviceName
         self.serverName = serverName
@@ -54,6 +56,7 @@ public struct ServerStatus: Codable, Equatable, Sendable {
         self.storedBytes = storedBytes
         self.verifyRunning = verifyRunning
         self.lastVerifyAt = lastVerifyAt
+        self.oneShotMetadata = oneShotMetadata
     }
 }
 

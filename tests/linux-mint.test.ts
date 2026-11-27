@@ -63,6 +63,49 @@ describe('client status telemetry & authenticated verify', () => {
     expect(status?.verifyRunning).toBe(false);
     expect(typeof status?.lastVerifyAt).toBe('number');
   });
+
+  it('POST /files supports native metadata (assetId, hidden, pairId, pairName, lastModified) and duplicate draining', async () => {
+    const s = await server();
+    const session = await s.newSession(2);
+    const videoBytes = Buffer.from('live photo companion video');
+    const photoBytes = Buffer.from('live photo still image');
+    const videoHash = (await import('./helpers.ts')).sha256(videoBytes);
+    const photoHash = (await import('./helpers.ts')).sha256(photoBytes);
+
+    const comp = await s.phone({
+      method: 'POST',
+      url: `${API}/files?filename=IMG_5001.MOV&sessionId=${session}&sha256=${videoHash}&hidden=1&lastModified=1700000000000&pairId=asset-5001&pairName=IMG_5001.HEIC`,
+      headers: { 'content-type': 'video/quicktime', 'content-length': String(videoBytes.length) },
+      payload: videoBytes,
+    });
+    expect(comp.statusCode).toBe(200);
+    expect(comp.json()).toMatchObject({ status: 'verified', endToEndVerified: true });
+
+    const main = await s.phone({
+      method: 'POST',
+      url: `${API}/files?filename=IMG_5001.HEIC&sessionId=${session}&sha256=${photoHash}&assetId=asset-5001&hidden=1&lastModified=1700000000000&pairId=asset-5001&pairName=IMG_5001.MOV`,
+      headers: { 'content-type': 'image/heic', 'content-length': String(photoBytes.length) },
+      payload: photoBytes,
+    });
+    expect(main.statusCode).toBe(200);
+    const mainBody = main.json() as { status: string; path: string };
+    expect(mainBody.status).toBe('verified');
+    expect(mainBody.path).toContain('Hidden');
+
+    // Sending the exact same file again via one-shot reports duplicate cleanly.
+    const dup = await s.phone({
+      method: 'POST',
+      url: `${API}/files?filename=IMG_5001.HEIC&sessionId=${session}&sha256=${photoHash}&assetId=asset-5001&hidden=1`,
+      headers: { 'content-type': 'image/heic', 'content-length': String(photoBytes.length) },
+      payload: photoBytes,
+    });
+    expect(dup.statusCode).toBe(200);
+    expect(dup.json()).toMatchObject({ status: 'duplicate' });
+
+    // Asset is now reported as held by /assets/held.
+    const held = (await s.phone({ method: 'GET', url: `${API}/assets/held` })).json() as { assetIds: string[] };
+    expect(held.assetIds).toContain('asset-5001');
+  });
 });
 
 describe('24/7 daemon mode', () => {
