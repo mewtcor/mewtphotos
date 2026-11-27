@@ -249,7 +249,9 @@ struct BackupRunnerTests {
         try? await Task.sleep(nanoseconds: 60_000_000)
         #expect(result.record.status == .stopped)
         #expect(result.stopMessage == BackupRunner.pcFullMessage)
-        #expect(await state.discarded == await state.prepared)
+        let discarded = await state.discarded
+        let prepared = await state.prepared
+        #expect(discarded == prepared)
     }
 }
 
