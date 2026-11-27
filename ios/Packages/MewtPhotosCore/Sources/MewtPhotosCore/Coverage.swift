@@ -18,4 +18,12 @@ public struct Coverage: Equatable, Sendable {
         let libraryIds = Set(library.map(\.assetId))
         return Coverage(missing: missing, held: library.count - missing.count, onPCOnly: held.subtracting(libraryIds).count)
     }
+
+    /// Returns an updated coverage snapshot after the server confirms `assetId` is stored on disk.
+    public func markingHeld(_ assetId: String) -> Coverage {
+        guard let index = missing.firstIndex(where: { $0.assetId == assetId }) else { return self }
+        var remaining = missing
+        remaining.remove(at: index)
+        return Coverage(missing: remaining, held: held + 1, onPCOnly: onPCOnly)
+    }
 }

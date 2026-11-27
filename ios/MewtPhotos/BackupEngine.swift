@@ -61,6 +61,32 @@ private final class ExportState: @unchecked Sendable {
     }
 }
 
+private final class ThroughputMeter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var samples: [(at: ContinuousClock.Instant, bytes: Int64)] = []
+    private let windowSeconds: Double = 1.5
+
+    func record(bytes: Int64) -> Double {
+        let now = ContinuousClock.now
+        lock.lock()
+        defer { lock.unlock() }
+        if bytes > 0 {
+            samples.append((now, bytes))
+        }
+        samples.removeAll { sample in
+            let parts = sample.at.duration(to: now).components
+            let age = Double(parts.seconds) + Double(parts.attoseconds) / 1e18
+            return age > windowSeconds
+        }
+        guard let first = samples.first else { return 0 }
+        let totalBytes = samples.reduce(Int64(0)) { $0 + $1.bytes }
+        guard totalBytes > 0 else { return 0 }
+        let parts = first.at.duration(to: now).components
+        let span = max(Double(parts.seconds) + Double(parts.attoseconds) / 1e18, 0.15)
+        return (Double(totalBytes) / 1_000_000.0) / span
+    }
+}
+
 private final class RecordSaveThrottle: @unchecked Sendable {
     private let lock = NSLock()
     private var lastSavedCompleted = 0
@@ -158,7 +184,7 @@ final class BackupModel {
         recounting = true
         defer { recounting = false }
 
-        let (items, _) = Self.libraryItems()
+        let (items, _) = await Task.detached(priority: .userInitiated) { BackupModel.libraryItems() }.value
         librarySnapshot = items
         libraryCounts = (items.count, items.filter(\.hidden).count)
 
@@ -280,12 +306,14 @@ final class BackupModel {
             }
         }
 
-        if pairing.serverStatus == nil {
-            await pairing.refreshServerStatus()
-        }
+        // Clear any leftover tasks in the legacy background URLSession (e.g. stalled tasks from older builds).
+        BackgroundUploader.shared.cancelAllTasks()
+
+        // Always refresh server status so capability flags (like oneShotMetadata) take effect immediately.
+        await pairing.refreshServerStatus()
         let useOneShot = pairing.serverStatus?.oneShotMetadata == true
 
-        let (items, paired) = BackupModel.libraryItems()
+        let (items, paired) = await Task.detached(priority: .userInitiated) { BackupModel.libraryItems() }.value
         librarySnapshot = items
         libraryCounts = (items.count, items.filter(\.hidden).count)
         let flags: [Bool]
@@ -316,6 +344,7 @@ final class BackupModel {
         )
 
         let saveThrottle = RecordSaveThrottle()
+        let throughput = ThroughputMeter()
         let runner = BackupRunner(
             prepare: { entry in
                 await MainActor.run {
@@ -351,9 +380,10 @@ final class BackupModel {
                                 }
                             }
                         },
-                        onProgress: { fileName, fraction, mbps in
+                        onProgress: { fileName, fraction, bytesDelta in
+                            let aggregateMbps = throughput.record(bytes: bytesDelta)
                             Task { @MainActor in
-                                self.recordTransferSample(fileName: fileName, fraction: fraction, mbps: mbps)
+                                self.recordTransferSample(fileName: fileName, fraction: fraction, mbps: aggregateMbps)
                             }
                         }
                     )
@@ -366,7 +396,13 @@ final class BackupModel {
                     Task { @MainActor in self.activeSendTasks.removeValue(forKey: taskId) }
                 }
                 do {
-                    return try await task.value
+                    let outcome = try await task.value
+                    await MainActor.run {
+                        if let currentCoverage = self.coverage {
+                            self.coverage = currentCoverage.markingHeld(item.entry.assetId)
+                        }
+                    }
+                    return outcome
                 } catch {
                     if !(error is CancellationError) {
                         await runLog?.append(.warn, code: "backup_send_error", "\(item.entry.fileName): \(error)")
@@ -470,7 +506,7 @@ final class BackupModel {
     /// `coverageFailed`. Photos the PC has that the library no longer has are kept on purpose and only counted.
     func refreshCoverage(pairing: AppModel) async {
         guard let connection = await pairing.connection() else { return }
-        let (items, _) = Self.libraryItems()
+        let (items, _) = await Task.detached(priority: .userInitiated) { BackupModel.libraryItems() }.value
         do {
             coverage = Coverage.compare(library: items, held: try await connection.client.heldAssetIds(key: connection.key))
             coverageFailed = false
@@ -485,7 +521,7 @@ final class BackupModel {
 
     /// Every asset in the library: the main fetch, plus the Hidden album. The main fetch alone returned no
     /// hidden items on the phone, so the Hidden album is read directly and anything new from it is added.
-    static func libraryAssets() -> [PHAsset] {
+    nonisolated static func libraryAssets() -> [PHAsset] {
         let options = PHFetchOptions()
         options.includeHiddenAssets = true
         options.includeAllBurstAssets = true
@@ -505,7 +541,7 @@ final class BackupModel {
     }
 
     /// Counts the items the run sees and how many are hidden. Reads no files.
-    static func countLibrary() -> (total: Int, hidden: Int) {
+    nonisolated static func countLibrary() -> (total: Int, hidden: Int) {
         let assets = libraryAssets()
         return (assets.count, assets.filter(\.isHidden).count)
     }
@@ -514,7 +550,7 @@ final class BackupModel {
     /// are included.
     /// The items, plus the identifiers of photos that have a second original (a RAW's JPEG or HEIC). Those are never
     /// skipped as "already on the PC" from the first part alone, so the second part is always checked and sent.
-    static func libraryItems() -> (items: [MewtPhotosCore.LibraryItem], paired: Set<String>) {
+    nonisolated static func libraryItems() -> (items: [MewtPhotosCore.LibraryItem], paired: Set<String>) {
         var items: [MewtPhotosCore.LibraryItem] = []
         var paired = Set<String>()
         for asset in libraryAssets() {
@@ -532,7 +568,7 @@ final class BackupModel {
 
     /// Exports one original to the work folder. Checks the phone's free space first; an original that cannot be
     /// read without iCloud is reported as not supported, never as backed up.
-    static func prepare(_ entry: RunEntry, work: URL) async throws -> PreparedItem {
+    nonisolated static func prepare(_ entry: RunEntry, work: URL) async throws -> PreparedItem {
         // Without these options Photos leaves out burst frames other than the key photo, and hidden photos, so the
         // item looks deleted. The same options as the library list keep the two in step.
         let fetchOptions = PHFetchOptions()
@@ -577,7 +613,7 @@ final class BackupModel {
     /// Streams one original to the work folder while computing its SHA-256 in a single pass.
     /// Network access is off so iCloud-only originals fail immediately as unavailable; a 60s inactivity
     /// watchdog and `ActiveExportTracker` guarantee PhotoKit can never stall the backup forever.
-    private static func export(_ resource: PHAssetResource, work: URL) async throws -> PreparedPart {
+    private nonisolated static func export(_ resource: PHAssetResource, work: URL) async throws -> PreparedPart {
         try Task.checkCancellation()
         let url = work.appendingPathComponent(UUID().uuidString + ".part")
         guard FileManager.default.createFile(atPath: url.path, contents: nil) else {
@@ -700,16 +736,16 @@ final class BackupModel {
     /// so the PC counts the photo as held only after every part is verified.
     /// Files smaller than this use the single-request `POST /api/v1/files` endpoint (when supported by
     /// the server) to avoid 3 round-trips per photo; larger files use resumable `PATCH`.
-    private static let oneShotThresholdBytes: Int64 = 16 * 1024 * 1024
+    private nonisolated static let oneShotThresholdBytes: Int64 = 16 * 1024 * 1024
 
-    static func send(
+    nonisolated static func send(
         _ item: PreparedItem,
         connection: PairedConnection,
         work: URL,
         sessionId: String? = nil,
         useOneShot: Bool = false,
         onPhase: (@Sendable (String) -> Void)? = nil,
-        onProgress: (@Sendable (String, Double, Double) -> Void)? = nil
+        onProgress: (@Sendable (String, Double, Int64) -> Void)? = nil
     ) async throws -> SendResult {
         let pairId: String? = item.companions.isEmpty ? nil : item.entry.assetId
         var results: [SendResult] = []
@@ -729,7 +765,7 @@ final class BackupModel {
 
     /// Sends one file: single-request `POST /api/v1/files` for smaller files on servers that support
     /// native metadata, or the 3-step resumable `beginUpload` -> `PATCH` -> `finishUpload` flow for large files.
-    private static func sendPart(
+    private nonisolated static func sendPart(
         _ part: PreparedPart,
         item: PreparedItem,
         assetId: String?,
@@ -739,7 +775,7 @@ final class BackupModel {
         sessionId: String?,
         useOneShot: Bool,
         onPhase: (@Sendable (String) -> Void)? = nil,
-        onProgress: (@Sendable (String, Double, Double) -> Void)? = nil
+        onProgress: (@Sendable (String, Double, Int64) -> Void)? = nil
     ) async throws -> SendResult {
         try Task.checkCancellation()
         let name = part.fileName
@@ -790,21 +826,13 @@ final class BackupModel {
             request.setValue("Bearer \(connection.key.revealForAuthorization())", forHTTPHeaderField: "Authorization")
             request.setValue("application/offset+octet-stream", forHTTPHeaderField: "Content-Type")
             request.setValue(String(begun.offset), forHTTPHeaderField: "Upload-Offset")
-            let started = ContinuousClock.now
             let baseOffset = begun.offset
             let totalSize = part.bytes
-            let bytesToSend = totalSize - baseOffset
-            _ = try await transfer(request, from: source) { sentBytes, _ in
-                let elapsedParts = started.duration(to: .now).components
-                let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
-                let mbps = sentBytes > 0 ? (Double(sentBytes) / 1_000_000.0) / max(elapsed, 0.005) : 0
+            _ = try await transfer(request, from: source) { deltaBytes, sentBytes, _ in
                 let fraction = totalSize > 0 ? Double(baseOffset + sentBytes) / Double(totalSize) : 1.0
-                onProgress?(name, fraction, mbps)
+                onProgress?(name, fraction, deltaBytes)
             }
-            let elapsedParts = started.duration(to: .now).components
-            let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
-            let finalMbps = bytesToSend > 0 ? (Double(bytesToSend) / 1_000_000.0) / max(elapsed, 0.005) : 0
-            onProgress?(name, 1.0, finalMbps)
+            onProgress?(name, 1.0, 0)
         }
 
         onPhase?("Verifying on server…")
@@ -831,12 +859,12 @@ final class BackupModel {
     }
 
     /// Single-request upload + server SHA-256 verification for smaller files (`< 16 MB`).
-    private static func sendPartOneShot(
+    private nonisolated static func sendPartOneShot(
         _ part: PreparedPart,
         url: URL,
         connection: PairedConnection,
         onPhase: (@Sendable (String) -> Void)?,
-        onProgress: (@Sendable (String, Double, Double) -> Void)?
+        onProgress: (@Sendable (String, Double, Int64) -> Void)?
     ) async throws -> SendResult {
         let name = part.fileName
         onPhase?("Uploading…")
@@ -844,18 +872,11 @@ final class BackupModel {
         request.httpMethod = "POST"
         request.setValue("Bearer \(connection.key.revealForAuthorization())", forHTTPHeaderField: "Authorization")
         request.setValue(mimeType(for: name), forHTTPHeaderField: "Content-Type")
-        let started = ContinuousClock.now
         let totalSize = part.bytes
-        let body = try await transfer(request, from: part.fileURL) { sentBytes, _ in
-            let elapsedParts = started.duration(to: .now).components
-            let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
-            let mbps = sentBytes > 0 ? (Double(sentBytes) / 1_000_000.0) / max(elapsed, 0.005) : 0
+        let body = try await transfer(request, from: part.fileURL) { deltaBytes, sentBytes, _ in
             let fraction = totalSize > 0 ? Double(sentBytes) / Double(totalSize) : 1.0
-            onProgress?(name, fraction, mbps)
+            onProgress?(name, fraction, deltaBytes)
         }
-        let elapsedParts = started.duration(to: .now).components
-        let elapsed = Double(elapsedParts.seconds) + Double(elapsedParts.attoseconds) / 1e18
-        let finalMbps = totalSize > 0 ? (Double(totalSize) / 1_000_000.0) / max(elapsed, 0.005) : 0
         let reply: (status: String, endToEndVerified: Bool)
         do {
             reply = try ServerClient.decodeUploadResult(from: body)
@@ -864,10 +885,10 @@ final class BackupModel {
         }
         switch reply.status {
         case "verified":
-            onProgress?(name, 1.0, finalMbps)
+            onProgress?(name, 1.0, 0)
             return .verified
         case "duplicate":
-            onProgress?(name, 1.0, finalMbps)
+            onProgress?(name, 1.0, 0)
             return .alreadyOnPC
         default:
             throw ItemError.failed("The PC did not confirm this photo.")
@@ -876,10 +897,10 @@ final class BackupModel {
 
     /// Streams the file over an in-process URLSession with stall detection and immediate cancellation.
     /// Returns the response body on 2xx. A full PC disk is reported as `pcFull` so the run stops.
-    private static func transfer(
+    private nonisolated static func transfer(
         _ request: URLRequest,
         from file: URL,
-        progress: ((Int64, Int64) -> Void)? = nil
+        progress: ((Int64, Int64, Int64) -> Void)? = nil
     ) async throws -> Data {
         try Task.checkCancellation()
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
@@ -913,7 +934,7 @@ final class BackupModel {
         }
     }
 
-    private static func mapped(_ error: Error) -> ItemError {
+    private nonisolated static func mapped(_ error: Error) -> ItemError {
         switch error as? ServerClientError {
         case .server(let status, let code, let message)?:
             if status == 507 { return .pcFull }
@@ -931,7 +952,7 @@ final class BackupModel {
         }
     }
 
-    private static func mappedFinish(_ error: ServerClientError) -> ItemError {
+    private nonisolated static func mappedFinish(_ error: ServerClientError) -> ItemError {
         switch error {
         case .server(let status, let code, let message):
             if status == 507 { return .pcFull }
@@ -947,7 +968,7 @@ final class BackupModel {
         }
     }
 
-    private static func mimeType(for name: String) -> String {
+    private nonisolated static func mimeType(for name: String) -> String {
         switch (name as NSString).pathExtension.lowercased() {
         case "heic": return "image/heic"
         case "heif": return "image/heif"
@@ -961,7 +982,7 @@ final class BackupModel {
     }
 
     /// Free bytes on the phone. If iOS does not say, assume enough: the reserve check is a safety margin only.
-    private static func freeBytes() -> Int64 {
+    private nonisolated static func freeBytes() -> Int64 {
         let attributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory())
         return (attributes?[.systemFreeSize] as? Int64) ?? Int64.max
     }

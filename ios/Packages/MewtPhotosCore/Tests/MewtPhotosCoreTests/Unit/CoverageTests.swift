@@ -25,4 +25,16 @@ struct CoverageTests {
         #expect(coverage.missing.isEmpty)
         #expect(coverage.onPCOnly == 1)
     }
+
+    @Test("markingHeld promotes a missing item once and never over-counts")
+    func markingHeld() {
+        let initial = Coverage.compare(library: [item("A"), item("B")], held: ["A"])
+        let updated = initial.markingHeld("B")
+        #expect(updated.held == 2)
+        #expect(updated.missing.isEmpty)
+        #expect(updated.isVerified)
+        // Marking an already-held item again is a no-op.
+        let again = updated.markingHeld("B")
+        #expect(again.held == 2)
+    }
 }

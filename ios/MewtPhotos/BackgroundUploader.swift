@@ -20,7 +20,7 @@ final class StreamUploader: NSObject, URLSessionDataDelegate, @unchecked Sendabl
 
     private let lock = NSLock()
     private var completions: [Int: (Int?, Data, Error?) -> Void] = [:]
-    private var progressHandlers: [Int: (Int64, Int64) -> Void] = [:]
+    private var progressHandlers: [Int: (Int64, Int64, Int64) -> Void] = [:]
     private var activeTasks: [Int: URLSessionUploadTask] = [:]
     private var responseData: [Int: Data] = [:]
     private var bodySentComplete: Set<Int> = []
@@ -47,12 +47,13 @@ final class StreamUploader: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         return URLSession(configuration: configuration, delegate: self, delegateQueue: delegateQueue)
     }()
 
-    /// Starts streaming `file` for `request`. Returns the task identifier so callers can cancel it.
+    /// Starts streaming `file` for `request`. `progress` receives `(bytesSentDelta, totalBytesSent, totalBytesExpectedToSend)`.
+    /// Returns the task identifier so callers can cancel it.
     @discardableResult
     func send(
         _ request: URLRequest,
         fromFile file: URL,
-        progress: ((Int64, Int64) -> Void)? = nil,
+        progress: ((Int64, Int64, Int64) -> Void)? = nil,
         completion: @escaping (Int?, Data, Error?) -> Void
     ) -> Int {
         lock.lock()
@@ -125,7 +126,7 @@ final class StreamUploader: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         }
         let handler = progressHandlers[id]
         lock.unlock()
-        handler?(totalBytesSent, totalBytesExpectedToSend)
+        handler?(bytesSent, totalBytesSent, totalBytesExpectedToSend)
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
@@ -211,6 +212,15 @@ final class BackgroundUploader: NSObject, URLSessionDataDelegate {
         let completion = completions.removeValue(forKey: task.taskIdentifier)
         lock.unlock()
         completion?(status, error)
+    }
+
+    /// Cancels any leftover tasks in the legacy background URLSession (e.g. stalled tasks from an older build).
+    func cancelAllTasks() {
+        session.getAllTasks { tasks in
+            for task in tasks {
+                task.cancel()
+            }
+        }
     }
 
     /// Copies the bytes from `offset` to the end into a second file. A resumed upload sends only those bytes.

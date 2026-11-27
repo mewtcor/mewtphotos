@@ -13,6 +13,8 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
     private var cachedMediaItems: [MewtMediaItem] = []
     private var cachedAlerts: [MewtAlertItem] = []
     private var formattedDateCache: [String: String] = [:]
+    private var lastListRebuildAt: ContinuousClock.Instant?
+    private var deferredRebuildTask: Task<Void, Never>?
 
     init(model: AppModel) {
         self.model = model
@@ -340,11 +342,46 @@ final class AppModelUIAdapter: MewtPhotosUIDataSource {
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.rebuildDerivedState()
+                self.scheduleDerivedStateRebuild()
                 self.objectWillChange.send()
                 self.observeStructuralChanges()
             }
         }
+    }
+
+    /// Rebuilds the 4,500+ item list immediately when idle, or throttled to ~1 Hz while a backup is
+    /// actively finishing multiple photos per second so the Main Thread stays smooth and cool.
+    private func scheduleDerivedStateRebuild() {
+        let isRunning = model.backup?.running ?? false
+        guard isRunning else {
+            deferredRebuildTask?.cancel()
+            deferredRebuildTask = nil
+            rebuildDerivedState()
+            lastListRebuildAt = .now
+            return
+        }
+        let now = ContinuousClock.now
+        if let last = lastListRebuildAt {
+            let parts = last.duration(to: now).components
+            let elapsed = Double(parts.seconds) + Double(parts.attoseconds) / 1e18
+            if elapsed < 1.0 {
+                if deferredRebuildTask == nil {
+                    deferredRebuildTask = Task { @MainActor [weak self] in
+                        try? await Task.sleep(for: .milliseconds(1000))
+                        guard let self, !Task.isCancelled else { return }
+                        self.deferredRebuildTask = nil
+                        self.rebuildDerivedState()
+                        self.lastListRebuildAt = .now
+                        self.objectWillChange.send()
+                    }
+                }
+                return
+            }
+        }
+        deferredRebuildTask?.cancel()
+        deferredRebuildTask = nil
+        rebuildDerivedState()
+        lastListRebuildAt = now
     }
 
     /// Watches high-frequency live transfer telemetry without rebuilding or sorting the 4,500+ item list.
